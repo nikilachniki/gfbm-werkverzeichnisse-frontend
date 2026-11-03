@@ -11,6 +11,7 @@ import Link from '@mui/material/Link'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import { EditionsPage } from './EditionsPage.tsx'
 import { InfoDialog } from './InfoDialog.tsx'
 import { PrintDetailPage } from './PrintDetailPage.tsx'
 import { PrintsPage } from './PrintsPage.tsx'
@@ -19,18 +20,27 @@ import { WorkDetailPage } from './WorkDetailPage.tsx'
 import { defaultPrintsFilters, type PrintsFilters } from '../search/filterPrints.ts'
 import { defaultWorksFilters, type WorksFilters } from '../search/filterWorks.ts'
 
-// Hauptbereiche Werke und Drucke. Die Detailseiten zaehlen zu ihrem Bereich.
+// Hauptbereiche Werke, Drucke und Gesamtausgabe. Die Detailseiten zaehlen zu
+// ihrem Bereich.
 function MainNav() {
   const { pathname } = useLocation()
-  const section = pathname.startsWith('/druck') ? 'drucke' : 'werke'
+  const section = pathname.startsWith('/druck')
+    ? 'drucke'
+    : pathname.startsWith('/gesamtausgabe')
+      ? 'gesamtausgabe'
+      : 'werke'
   return (
     <Tabs
       value={section}
       textColor="inherit"
+      // Auf schmalen Bildschirmen wischbar, damit das Info-Symbol sichtbar bleibt
+      variant="scrollable"
+      scrollButtons={false}
       sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, minWidth: 0, px: 1.5 } }}
     >
       <Tab label="Werke" value="werke" component={RouterLink} to="/" />
       <Tab label="Drucke" value="drucke" component={RouterLink} to="/drucke" />
+      <Tab label="Gesamtausgabe" value="gesamtausgabe" component={RouterLink} to="/gesamtausgabe" />
     </Tabs>
   )
 }
@@ -76,7 +86,7 @@ function App() {
             >
               Orlando di Lasso
             </Typography>
-            <Box sx={{ flexGrow: 1 }}>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <MainNav />
             </Box>
             <Tooltip title="Informationen zum Projekt">
@@ -97,6 +107,8 @@ function App() {
           <Route path="/werk/:slug" element={<WorkDetailPage />} />
           <Route path="/drucke" element={<PrintsPage filters={printsFilters} onFiltersChange={setPrintsFilters} />} />
           <Route path="/druck/:siglum" element={<PrintDetailPage />} />
+          <Route path="/gesamtausgabe" element={<EditionsPage />} />
+          <Route path="/gesamtausgabe/:volume" element={<EditionsPage />} />
         </Routes>
       </Box>
     </HashRouter>

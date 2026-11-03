@@ -1,3 +1,4 @@
+import editionsFile from './data/editions.json'
 import entriesFile from './data/entries.json'
 import expressionsFile from './data/expressions.json'
 import manuscriptsFile from './data/manuscripts.json'
@@ -6,6 +7,8 @@ import printsFile from './data/prints.json'
 import worksFile from './data/works.json'
 import type {
   CatalogueEntry,
+  EditionAppearance,
+  EditionsFile,
   EntriesFile,
   Expression,
   ExpressionsFile,
@@ -15,6 +18,8 @@ import type {
   PersonsFile,
   Print,
   PrintsFile,
+  TitleBasis,
+  Volume,
   Work,
   WorksFile,
 } from './types'
@@ -27,6 +32,7 @@ const manuscripts = (manuscriptsFile as ManuscriptsFile).items
 const persons = (personsFile as PersonsFile).items
 const expressions = (expressionsFile as ExpressionsFile).items
 export const prints = (printsFile as PrintsFile).items
+export const editions = (editionsFile as EditionsFile).items
 
 // Ein Werk verweist per @id-Liste auf seine Eintraege (je ein Eintrag pro
 // Druck, in dem es erschienen ist) und auf seine Handschriften-Zeugnisse.
@@ -102,6 +108,163 @@ const contentsBySiglum = new Map<string, WorkInPrint[]>()
     const target = (whole && byKey.get(`${whole['@id']}|${entry.firstPrint}`)) ?? add(owner, entry.firstPrint, null, null)
     target.entries.push(entry)
   }
+}
+
+// Ein Werk oder eine Fassung in einem Band der Gesamtausgabe
+export interface VolumeContent {
+  id: string
+  // Das Werk, zu dem der Klick fuehrt
+  work: Work
+  catalogNumber: string
+  title: string | null
+  titleBasis: TitleBasis
+  // "Nr. 12" oder "S. 3"
+  location: string
+  appendix: string | null
+  note: string | null
+  // Teil eines Gesamtwerks, das im selben Band steht
+  isNestedPart: boolean
+}
+
+// Baende und Teilbaende, beide koennen Ziel einer Fundstelle sein. band ist bei
+// einem Band er selbst.
+const volumeById = new Map(
+  editions.flatMap((edition) =>
+    edition.volumes.flatMap((band) =>
+      [band, ...band.parts].map((volume) => [volume['@id'], { edition, band, volume }] as const),
+    ),
+  ),
+)
+
+const appearanceLocation = (appearance: EditionAppearance) =>
+  appearance.number !== undefined ? `Nr. ${appearance.number}` : `S. ${appearance.page}`
+
+const sameLocation = (a: EditionAppearance, b: EditionAppearance) =>
+  a.inVolume === b.inVolume && a.number === b.number && a.page === b.page && a.appendix === b.appendix
+
+// Hauptteil vor Anhang, dann nach Stueck oder Seite; das Gesamtwerk steht durch
+// die LV-Nummer vor seinen Teilen.
+function compareVolumeContents(a: VolumeContent, b: VolumeContent): number {
+  return (
+    (a.appendix ?? '').localeCompare(b.appendix ?? '', 'de', { numeric: true }) ||
+    a.location.localeCompare(b.location, 'de', { numeric: true }) ||
+    a.catalogNumber.localeCompare(b.catalogNumber, 'de', { numeric: true })
+  )
+}
+
+// Fuer jeden Band die enthaltenen Werke, einmal beim Laden aufgebaut. Eine
+// Fassung erscheint nur, wenn ihr Werk nicht an derselben Stelle steht, sonst
+// stuende dasselbe Stueck zweimal in der Liste.
+const contentsByVolume = new Map<string, VolumeContent[]>()
+{
+  const add = (appearance: EditionAppearance, content: Omit<VolumeContent, 'location' | 'appendix' | 'note'>) => {
+    const list = contentsByVolume.get(appearance.inVolume) ?? []
+    list.push({
+      ...content,
+      location: appearanceLocation(appearance),
+      appendix: appearance.appendix ?? null,
+      note: appearance.note ?? null,
+    })
+    contentsByVolume.set(appearance.inVolume, list)
+  }
+  for (const work of works) {
+    const whole = work.isPartOf ? workById.get(work.isPartOf) : undefined
+    for (const appearance of work.editionAppearances) {
+      add(appearance, {
+        id: work['@id'],
+        work,
+        catalogNumber: formatCatalogNumber(work),
+        title: work.preferredTitle,
+        titleBasis: work.preferredTitleBasis,
+        isNestedPart: whole?.editionAppearances.some((other) => other.inVolume === appearance.inVolume) ?? false,
+      })
+    }
+  }
+  for (const expression of expressions) {
+    const work = workById.get(expression.realizationOf)
+    if (!work) {
+      continue
+    }
+    for (const appearance of expression.editionAppearances) {
+      if (work.editionAppearances.some((other) => sameLocation(other, appearance))) {
+        continue
+      }
+      add(appearance, {
+        id: expression['@id'],
+        work,
+        catalogNumber: `LV ${expression.lv}`,
+        title: expression.preferredTitle,
+        titleBasis: expression.preferredTitleBasis,
+        isNestedPart: false,
+      })
+    }
+  }
+  for (const list of contentsByVolume.values()) {
+    list.sort(compareVolumeContents)
+  }
+}
+
+export function getVolumeContents(volume: Pick<Volume, '@id'>): VolumeContent[] {
+  return contentsByVolume.get(volume['@id']) ?? []
+}
+
+// Die Ebenen ueber einem Band oder Teilband: Ausgabe und Band
+export function volumeAncestorIds(volumeId: string): string[] {
+  const place = volumeById.get(volumeId)
+  return place ? [place.edition['@id'], place.band['@id']] : []
+}
+
+// Adresse eines Bandes: die Seite klappt ihn auf und scrollt dorthin.
+export function volumePath(volumeId: string): string {
+  return `/gesamtausgabe/${volumeId.replace(/^edition:/, '')}`
+}
+
+// Die Zeile eines Werks oder einer Fassung im Band. Eine Fassung, die dort
+// nicht eigens steht (siehe contentsByVolume), zeigt auf ihr Werk.
+export function volumeContentId(volumeId: string, itemId: string): string {
+  const contents = contentsByVolume.get(volumeId) ?? []
+  if (contents.some((content) => content.id === itemId)) {
+    return itemId
+  }
+  return expressionById.get(itemId)?.realizationOf ?? itemId
+}
+
+// Eine Fundstelle zur Anzeige, etwa "GA² XVI, Anhang 2, Nr. 3"
+export function formatEditionAppearance(appearance: EditionAppearance): string {
+  const place = volumeById.get(appearance.inVolume)
+  const volume = place ? `${place.edition.siglum} ${place.volume.volume}` : appearance.inVolume
+  const label = [volume, appearance.appendix, appearanceLocation(appearance)].filter(Boolean).join(', ')
+  return appearance.note ? `${label} ${appearance.note}` : label
+}
+
+// Der Band einer Fundstelle ausgeschrieben, fuer den Tooltip
+export function editionAppearanceVolumeTitle(appearance: EditionAppearance): string {
+  const place = volumeById.get(appearance.inVolume)
+  return place ? `${place.edition.title}, Band ${place.volume.volume}` : appearance.inVolume
+}
+
+// Die Fundstelle fuer die Suche, in der ueblichen Zitierweise ("GA XIX 476")
+// und den Schreibweisen des Registers ("GA 2 XIV,I 65", "NR2 1"). Ohne "Nr.",
+// weil die Suche "NR" sonst bei jedem Band mit Stuecknummern traefe.
+export function editionAppearanceSearchTexts(appearance: EditionAppearance): string[] {
+  const place = volumeById.get(appearance.inVolume)
+  const citation = [
+    place ? `${place.edition.siglum} ${place.volume.volume}` : appearance.inVolume,
+    appearance.appendix,
+    appearance.number ?? `S. ${appearance.page}`,
+    appearance.note,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return Array.from(
+    new Set([
+      citation,
+      citation.replace('GA²', 'GA 2'),
+      citation.replace('GA²', 'GA2'),
+      citation.replace('NR 1²', 'NR 1'),
+      citation.replace('NR 1²', 'NR2 1'),
+    ]),
+  )
 }
 
 export function getPerson(id: string): Person | undefined {

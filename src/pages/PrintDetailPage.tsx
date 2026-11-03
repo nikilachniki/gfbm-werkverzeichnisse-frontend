@@ -14,6 +14,7 @@ import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { BackButton } from '../components/BackButton.tsx'
+import { EditionChips } from '../components/EditionChips.tsx'
 import { Fact } from '../components/Fact.tsx'
 import { PrintRism } from '../components/PrintRism.tsx'
 import { PrintReferences, PrintTitlePage, TextWithPrintLinks } from '../components/PrintText.tsx'
@@ -106,7 +107,9 @@ function PrintContentsTable({ contents }: { contents: WorkInPrint[] }) {
                 <TableCell>
                   <AuthorOrSourceText authors={textAuthorLabels(work)} sources={work.textSources} />
                 </TableCell>
-                <TableCell>{work.completeEditions.join(', ')}</TableCell>
+                <TableCell>
+                  <EditionChips item={work} />
+                </TableCell>
                 {hasLanguages && <TableCell>{work.languages.join(', ')}</TableCell>}
                 {hasNotes && <TableCell>{content.note}</TableCell>}
               </TableRow>

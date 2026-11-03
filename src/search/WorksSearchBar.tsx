@@ -42,7 +42,7 @@ export function WorksSearchBar({
       multiField('voiceCounts', 'Stimmen', voiceCountOptions, { getOptionLabel: (option) => String(option) }),
       textField('prints', 'Drucke', 'z. B. 1555-1'),
       yearRangeField('yearFrom', 'yearTo', 'Druckjahr'),
-      textField('completeEditions', 'Gesamtausgabe', 'z. B. GA XIX', 180),
+      textField('editions', 'Gesamtausgabe', 'z. B. GA XIX', 180),
       // Die Sprache ist in den Daten noch nicht durchgehend erfasst;
       // ein Filter ohne einen einzigen Wert wuerde nur eine leere Auswahl zeigen.
       ...(languageOptions.length > 0

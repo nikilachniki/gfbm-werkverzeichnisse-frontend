@@ -22,6 +22,7 @@ import { EARLIEST_SOURCE_HINT } from '../components/WorkTitle.tsx'
 import { AuthorOrSourceText } from '../helpers.tsx'
 import type { TitleBasis, Work } from '../types.ts'
 import {
+  formatEditionAppearance,
   getManuscripts,
   getParts,
   getPerson,
@@ -59,7 +60,7 @@ interface Row {
   textAuthorOrSource: string
   textAuthors: TextAuthorLabel[]
   textSources: string[]
-  completeEditions: string
+  editions: string
   languages: string
   siglaText: string
   sigla: Siglum[]
@@ -295,11 +296,11 @@ ${EARLIEST_SOURCE_HINT}`
     ),
   },
   {
-    field: 'completeEditions',
+    field: 'editions',
     headerName: 'Gesamtausgabe',
-    width: 130,
+    width: 170,
     renderCell: (params: GridRenderCellParams<Row>) => (
-      <Highlight text={params.row.completeEditions} query={query} />
+      <Highlight text={params.row.editions} query={query} />
     ),
   },
   {
@@ -385,7 +386,7 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
         textAuthorOrSource: formatTextAuthorOrSource(work),
         textAuthors: textAuthorLabels(work),
         textSources: work.textSources,
-        completeEditions: work.completeEditions.join(', '),
+        editions: work.editionAppearances.map(formatEditionAppearance).join('; '),
         languages: work.languages.join(', '),
         siglaText: sigla.map((entry) => entry.siglum).join(', '),
         sigla,

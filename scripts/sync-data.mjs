@@ -34,6 +34,7 @@ const FILES = [
   'expressions.json',
   'prints.json',
   'persons.json',
+  'editions.json',
 ]
 
 if (!existsSync(sourceDir)) {

@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { BackButton } from '../components/BackButton.tsx'
+import { EditionChips } from '../components/EditionChips.tsx'
 import { Fact } from '../components/Fact.tsx'
 import { Section } from '../components/Section.tsx'
 import { PrintChip } from '../components/PrintChip.tsx'
@@ -125,7 +126,7 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
               selected={part['@id'] === focusId}
               ref={part['@id'] === focusId ? focusRef : undefined}
             >
-              <TableCell>{part.lv}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{part.lv}</TableCell>
               <TableCell>
                 <WorkTitle basis={part.preferredTitleBasis}>{mainTitle(part)}</WorkTitle>
               </TableCell>
@@ -136,7 +137,9 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
               <TableCell>
                 <AuthorOrSourceText authors={textAuthorLabels(part)} sources={part.textSources} />
               </TableCell>
-              <TableCell>{part.completeEditions.join(', ')}</TableCell>
+              <TableCell>
+                <EditionChips item={part} />
+              </TableCell>
               {hasLanguages && <TableCell>{part.languages.join(', ')}</TableCell>}
             </TableRow>
           ))}
@@ -185,7 +188,9 @@ function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
               <TableCell>
                 <AuthorOrSourceText authors={textAuthorLabels(expression)} sources={expression.textSources} />
               </TableCell>
-              <TableCell>{expression.completeEditions.join(', ')}</TableCell>
+              <TableCell>
+                <EditionChips item={expression} />
+              </TableCell>
               {hasLanguages && <TableCell>{expression.languages.join(', ')}</TableCell>}
             </TableRow>
           ))}
@@ -424,7 +429,11 @@ export function WorkDetailPage() {
             labelWidth={130}
             value={<AuthorOrSourceText authors={textAuthorLabels(work)} sources={work.textSources} />}
           />
-          <Fact label="Gesamtausgabe" labelWidth={130} value={work.completeEditions.join(', ')} />
+          <Fact
+            label="Gesamtausgabe"
+            labelWidth={130}
+            value={work.editionAppearances.length > 0 ? <EditionChips item={work} /> : ''}
+          />
         </Box>
 
         <Box sx={{ mt: 3 }}>

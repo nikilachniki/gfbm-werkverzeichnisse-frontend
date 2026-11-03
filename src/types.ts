@@ -28,7 +28,8 @@ export interface Work {
   // ist (Rohwert mit "?", etwa "Ludwig Helmbold?")
   uncertainTextAuthors: string[]
   textSources: string[]
-  completeEditions: string[]
+  // Fundstellen in den Baenden der Gesamtausgaben, siehe Edition
+  editionAppearances: EditionAppearance[]
   // Gattung und Sprache aus den Eintraegen, Rohwerte ohne Dubletten
   genres: string[]
   languages: string[]
@@ -44,6 +45,51 @@ export interface PrintAppearance {
   inPrint: string
   piece: string | null
   note?: string
+}
+
+// Ein Werk oder eine Fassung in einem Band der Gesamtausgabe: mit Stuecknummer
+// oder Seite, bei Bedarf im Anhang des Bandes und mit Zusatz wie "†"
+export interface EditionAppearance {
+  inVolume: string
+  number?: string
+  page?: number
+  appendix?: string
+  note?: string
+}
+
+// Eine Gesamtausgabe (GA, GA², NR) mit ihren Baenden. Moderne Editionen, keine
+// Quellen, deshalb getrennt von den Drucken.
+export interface Edition {
+  '@id': string
+  '@type': 'Edition'
+  siglum: string
+  title: string
+  volumes: Volume[]
+}
+
+export interface Volume {
+  '@id': string
+  '@type': 'Volume'
+  volume: string
+  title: string | null
+  editors: string[]
+  place: string | null
+  publisher: string | null
+  year: number | null
+  parts: VolumePart[]
+}
+
+// Ein Teilband wie "VIII,I": Ziel von Fundstellen, die bibliographischen Angaben
+// stehen am Band.
+export interface VolumePart {
+  '@id': string
+  '@type': 'VolumePart'
+  volume: string
+}
+
+export interface EditionsFile {
+  '@context': string
+  items: Edition[]
 }
 
 // Woher der preferredTitle stammt: normalisierter Titel oder frueheste Quelle
@@ -70,7 +116,7 @@ export interface Expression {
   textAuthors: string[]
   uncertainTextAuthors: string[]
   textSources: string[]
-  completeEditions: string[]
+  editionAppearances: EditionAppearance[]
   genres: string[]
   languages: string[]
   entries: string[]

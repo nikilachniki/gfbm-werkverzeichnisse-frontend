@@ -1,5 +1,6 @@
 import type { Work } from '../types'
 import {
+  editionAppearanceSearchTexts,
   findPrintBySiglum,
   getExpressions,
   getManuscripts,
@@ -20,7 +21,7 @@ export interface WorksFilters {
   prints: string
   yearFrom: string
   yearTo: string
-  completeEditions: string
+  editions: string
   languages: string[]
   manuscripts: string
 }
@@ -35,7 +36,7 @@ export const defaultWorksFilters: WorksFilters = {
   prints: '',
   yearFrom: '',
   yearTo: '',
-  completeEditions: '',
+  editions: '',
   languages: [],
   manuscripts: '',
 }
@@ -51,13 +52,23 @@ export function hasActiveFilters(filters: WorksFilters): boolean {
     filters.prints.trim() !== '' ||
     filters.yearFrom !== '' ||
     filters.yearTo !== '' ||
-    filters.completeEditions.trim() !== '' ||
+    filters.editions.trim() !== '' ||
     filters.languages.length > 0 ||
     filters.manuscripts.trim() !== ''
   )
 }
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase('de-DE')
+
+// Fundstellen unabhaengig von Komma und Leerzeichen vergleichen: "NR 20,21"
+// trifft "NR 20 21". Fassungen gehoeren zum Werk, ihre Fundstellen zaehlen mit.
+const normalizeCitation = (value: string) => normalize(value).replace(/[,\s]+/g, ' ')
+
+function editionSearchTexts(work: Work): string[] {
+  return [work, ...getExpressions(work)]
+    .flatMap((item) => item.editionAppearances)
+    .flatMap(editionAppearanceSearchTexts)
+}
 
 // Suchindex je Werk, beim ersten Suchen aufgebaut; die Daten aendern sich zur
 // Laufzeit nicht. Titel zaehlen am meisten, die Titel der Handschriften
@@ -101,7 +112,7 @@ function fullDocument(work: Work): SearchDocument {
         { text: siglum },
         { text: findPrintBySiglum(siglum)?.shortTitle ?? '', numbers: true },
       ]),
-      ...work.completeEditions.map((text) => ({ text })),
+      ...editionSearchTexts(work).map((text) => ({ text })),
       ...work.languages.map((text) => ({ text })),
       ...getExpressions(work).map((expression) => ({ text: expression.lv ?? '' })),
     ])
@@ -116,7 +127,7 @@ export function searchWorks(works: Work[], filters: WorksFilters): { works: Work
   const query = parseQuery(filters.query)
   const textSources = normalize(filters.textSources)
   const prints = normalize(filters.prints)
-  const completeEditions = normalize(filters.completeEditions)
+  const editions = normalizeCitation(filters.editions)
   const title = parseQuery(filters.title)
   const manuscripts = normalize(filters.manuscripts)
   const scores = new Map<string, number>()
@@ -165,8 +176,8 @@ export function searchWorks(works: Work[], filters: WorksFilters): { works: Work
       return false
     }
     if (
-      completeEditions &&
-      !work.completeEditions.some((value) => normalize(value).includes(completeEditions))
+      editions &&
+      !editionSearchTexts(work).some((value) => normalizeCitation(value).includes(editions))
     ) {
       return false
     }
