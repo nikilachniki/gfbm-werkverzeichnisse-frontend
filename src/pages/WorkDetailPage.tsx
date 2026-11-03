@@ -98,7 +98,6 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
     parts.some((part) => part.textAuthors.length > 0),
     parts.some((part) => part.textSources.length > 0),
   )
-  const hasGenres = parts.some((part) => part.genres.length > 0)
   const hasLanguages = parts.some((part) => part.languages.length > 0)
 
   useEffect(() => {
@@ -116,7 +115,6 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
             <TableCell>Drucke</TableCell>
             <TableCell>{authorOrSourceHeader}</TableCell>
             <TableCell>Gesamtausgabe</TableCell>
-            {hasGenres && <TableCell>Gattung</TableCell>}
             {hasLanguages && <TableCell>Sprache</TableCell>}
           </TableRow>
         </TableHead>
@@ -139,7 +137,6 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
                 <AuthorOrSourceText authors={textAuthorLabels(part)} sources={part.textSources} />
               </TableCell>
               <TableCell>{part.completeEditions.join(', ')}</TableCell>
-              {hasGenres && <TableCell>{part.genres.join(', ')}</TableCell>}
               {hasLanguages && <TableCell>{part.languages.join(', ')}</TableCell>}
             </TableRow>
           ))}
@@ -156,7 +153,6 @@ function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
     expressions.some((expression) => expression.textAuthors.length > 0),
     expressions.some((expression) => expression.textSources.length > 0),
   )
-  const hasGenres = expressions.some((expression) => expression.genres.length > 0)
   const hasLanguages = expressions.some((expression) => expression.languages.length > 0)
 
   return (
@@ -171,7 +167,6 @@ function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
             <TableCell>Druck</TableCell>
             <TableCell>{authorOrSourceHeader}</TableCell>
             <TableCell>Gesamtausgabe</TableCell>
-            {hasGenres && <TableCell>Gattung</TableCell>}
             {hasLanguages && <TableCell>Sprache</TableCell>}
           </TableRow>
         </TableHead>
@@ -191,7 +186,6 @@ function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
                 <AuthorOrSourceText authors={textAuthorLabels(expression)} sources={expression.textSources} />
               </TableCell>
               <TableCell>{expression.completeEditions.join(', ')}</TableCell>
-              {hasGenres && <TableCell>{expression.genres.join(', ')}</TableCell>}
               {hasLanguages && <TableCell>{expression.languages.join(', ')}</TableCell>}
             </TableRow>
           ))}
@@ -418,7 +412,6 @@ export function WorkDetailPage() {
               <Fact label="Weitere Titel" labelWidth={130} value={work.variantTitles.join(' / ')} />
             </Box>
           )}
-          <Fact label="Gattung" labelWidth={130} value={work.genres.join(', ')} />
           <Fact label="Sprache" labelWidth={130} value={work.languages.join(', ')} />
           <Fact label="Stimmen" labelWidth={130} value={work.voiceCounts.join(', ')} />
           <Fact

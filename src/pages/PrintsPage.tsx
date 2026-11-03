@@ -24,7 +24,6 @@ interface Row {
   workCount: number
   firstPrintCount: number
   voiceCounts: string
-  genres: string
   languages: string
 }
 
@@ -45,7 +44,6 @@ const filterAuthorOptions = createFilterOptions<string>({
   stringify: (id) => textAuthorSearchNames(id).join(' '),
 })
 
-const genreOptions = collect((summary) => summary.genres).sort((a, b) => a.localeCompare(b, 'de'))
 const languageOptions = collect((summary) => summary.languages).sort((a, b) => a.localeCompare(b, 'de'))
 
 const fields: FilterField<PrintsFilters>[] = [
@@ -68,14 +66,13 @@ const fields: FilterField<PrintsFilters>[] = [
     collect((summary) => summary.voiceCounts).sort((a, b) => a - b),
     { getOptionLabel: (option) => String(option) },
   ),
-  ...(genreOptions.length > 0 ? [multiField<PrintsFilters, string>('genres', 'Gattung', genreOptions)] : []),
   ...(languageOptions.length > 0
     ? [multiField<PrintsFilters, string>('languages', 'Sprache', languageOptions)]
     : []),
 ]
 
 function createColumns(query: string): GridColDef<Row>[] {
-  const highlighted = (field: 'siglum' | 'description' | 'genres' | 'languages') => ({
+  const highlighted = (field: 'siglum' | 'description' | 'languages') => ({
     renderCell: (params: GridRenderCellParams<Row>) => <Highlight text={params.row[field]} query={query} />,
   })
   return [
@@ -129,7 +126,6 @@ function createColumns(query: string): GridColDef<Row>[] {
       width: 100,
     },
     { field: 'voiceCounts', headerName: 'Stimmen', width: 110 },
-    { field: 'genres', headerName: 'Gattung', flex: 1, minWidth: 140, ...highlighted('genres') },
     { field: 'languages', headerName: 'Sprache', flex: 1, minWidth: 120, ...highlighted('languages') },
   ]
 }
@@ -154,7 +150,6 @@ export function PrintsPage({ filters, onFiltersChange }: PrintsPageProps) {
         workCount: summary.contents.length,
         firstPrintCount: summary.print.entryCount,
         voiceCounts: summary.voiceCounts.join(', '),
-        genres: summary.genres.join(', '),
         languages: summary.languages.join(', '),
       })),
     [filters],
@@ -172,7 +167,7 @@ export function PrintsPage({ filters, onFiltersChange }: PrintsPageProps) {
         onFiltersChange={onFiltersChange}
         defaultFilters={defaultPrintsFilters}
         fields={fields}
-        placeholder="Drucke durchsuchen – Kurztitel, Sigel, Jahr, Beschreibung, Titelblatt, Verweise, Gattung …"
+        placeholder="Drucke durchsuchen – Kurztitel, Sigel, Jahr, Beschreibung, Titelblatt, Verweise …"
       />
       <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <DataGrid

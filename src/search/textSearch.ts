@@ -166,7 +166,7 @@ function matchQuality(term: Term, token: string, numbers: boolean): number {
   return quality
 }
 
-// Ein Feld eines Datensatzes. weight hebt etwa den Titel ueber die Gattung;
+// Ein Feld eines Datensatzes. weight hebt etwa den Titel ueber die Sprache;
 // numbers erlaubt den Zahlenvergleich ("primus" = "1."), aber nur dort, wo
 // Zahlen Ordnungszahlen sind, nicht bei LV-Nummern oder Sigeln.
 export interface SearchField {

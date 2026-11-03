@@ -17,7 +17,6 @@ interface WorksSearchBarProps {
   onFiltersChange: (filters: WorksFilters) => void
   authorOptions: string[]
   voiceCountOptions: number[]
-  genreOptions: string[]
   languageOptions: string[]
   resultCount: number
   totalCount: number
@@ -28,7 +27,6 @@ export function WorksSearchBar({
   onFiltersChange,
   authorOptions,
   voiceCountOptions,
-  genreOptions,
   languageOptions,
 }: WorksSearchBarProps) {
   const fields = useMemo<FilterField<WorksFilters>[]>(
@@ -45,15 +43,14 @@ export function WorksSearchBar({
       textField('prints', 'Drucke', 'z. B. 1555-1'),
       yearRangeField('yearFrom', 'yearTo', 'Druckjahr'),
       textField('completeEditions', 'Gesamtausgabe', 'z. B. GA XIX', 180),
-      // Gattung und Sprache sind in den Daten noch nicht durchgehend erfasst;
+      // Die Sprache ist in den Daten noch nicht durchgehend erfasst;
       // ein Filter ohne einen einzigen Wert wuerde nur eine leere Auswahl zeigen.
-      ...(genreOptions.length > 0 ? [multiField<WorksFilters, string>('genres', 'Gattung', genreOptions)] : []),
       ...(languageOptions.length > 0
         ? [multiField<WorksFilters, string>('languages', 'Sprache', languageOptions)]
         : []),
       textField('manuscripts', 'Handschrift (RISM-Sigel)', 'z. B. D-Mbs', 180),
     ],
-    [authorOptions, voiceCountOptions, genreOptions, languageOptions],
+    [authorOptions, voiceCountOptions, languageOptions],
   )
 
   return (
@@ -62,7 +59,7 @@ export function WorksSearchBar({
       onFiltersChange={onFiltersChange}
       defaultFilters={defaultWorksFilters}
       fields={fields}
-      placeholder="Werke durchsuchen – Titel, LV-Nummer, Textdichter, Drucke, Gesamtausgabe, Gattung …"
+      placeholder="Werke durchsuchen – Titel, LV-Nummer, Textdichter, Drucke, Gesamtausgabe …"
     />
   )
 }

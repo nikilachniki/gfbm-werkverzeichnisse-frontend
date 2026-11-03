@@ -19,7 +19,6 @@ export interface PrintSummary {
   contents: WorkInPrint[]
   voiceCounts: number[]
   textAuthors: string[]
-  genres: string[]
   languages: string[]
 }
 
@@ -39,7 +38,6 @@ export const printSummaries: PrintSummary[] = prints.map((print) => {
     contents,
     voiceCounts: distinct(works.flatMap((work) => work.voiceCounts)).sort((a, b) => a - b),
     textAuthors: distinct(works.flatMap((work) => work.textAuthors)),
-    genres: distinct(works.flatMap((work) => work.genres)).sort((a, b) => a.localeCompare(b, 'de')),
     languages: distinct(works.flatMap((work) => work.languages)).sort((a, b) => a.localeCompare(b, 'de')),
   }
 })
@@ -56,7 +54,6 @@ export interface PrintsFilters {
   title: string
   textAuthors: string[]
   voiceCounts: number[]
-  genres: string[]
   languages: string[]
 }
 
@@ -72,7 +69,6 @@ export const defaultPrintsFilters: PrintsFilters = {
   title: '',
   textAuthors: [],
   voiceCounts: [],
-  genres: [],
   languages: [],
 }
 
@@ -103,7 +99,6 @@ function fullDocument(summary: PrintSummary): SearchDocument {
       { text: summary.print.title ?? '', weight: 2, numbers: true },
       { text: summary.print.partbooks ?? '' },
       ...printReferences(summary.print).map((reference) => ({ text: `${reference.catalogue ?? ''} ${reference.value}` })),
-      ...summary.genres.map((text) => ({ text })),
       ...summary.languages.map((text) => ({ text })),
     ]),
   )
@@ -126,7 +121,7 @@ function worksTitleDocument(summary: PrintSummary): SearchDocument {
 const matches = (document: SearchDocument, query: ReturnType<typeof parseQuery>) =>
   !query || scoreDocument(document, query) > 0
 
-// Die Listenfilter (Textdichter, Stimmen, Gattung, Sprache) treffen einen
+// Die Listenfilter (Textdichter, Stimmen, Sprache) treffen einen
 // Druck, wenn mindestens eines seiner Werke passt, wie bei den Werken. Bei
 // aktiver Volltextsuche nach Relevanz sortiert, sonst in der Reihenfolge der
 // Eingabe (nach Sigel).
@@ -186,7 +181,6 @@ export function filterPrints(summaries: PrintSummary[], filters: PrintsFilters):
     if (
       !anyOf(filters.textAuthors, summary.textAuthors) ||
       !anyOf(filters.voiceCounts, summary.voiceCounts) ||
-      !anyOf(filters.genres, summary.genres) ||
       !anyOf(filters.languages, summary.languages)
     ) {
       return false

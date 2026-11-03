@@ -60,7 +60,6 @@ interface Row {
   textAuthors: TextAuthorLabel[]
   textSources: string[]
   completeEditions: string
-  genres: string
   languages: string
   siglaText: string
   sigla: Siglum[]
@@ -304,12 +303,6 @@ ${EARLIEST_SOURCE_HINT}`
     ),
   },
   {
-    field: 'genres',
-    headerName: 'Gattung',
-    width: 95,
-    renderCell: (params: GridRenderCellParams<Row>) => <Highlight text={params.row.genres} query={query} />,
-  },
-  {
     field: 'languages',
     headerName: 'Sprache',
     width: 85,
@@ -351,10 +344,6 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
     [],
   )
 
-  const genreOptions = useMemo(
-    () => collectDistinct(works, (work) => work.genres).sort((a, b) => a.localeCompare(b, 'de')),
-    [],
-  )
   const languageOptions = useMemo(
     () => collectDistinct(works, (work) => work.languages).sort((a, b) => a.localeCompare(b, 'de')),
     [],
@@ -397,7 +386,6 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
         textAuthors: textAuthorLabels(work),
         textSources: work.textSources,
         completeEditions: work.completeEditions.join(', '),
-        genres: work.genres.join(', '),
         languages: work.languages.join(', '),
         siglaText: sigla.map((entry) => entry.siglum).join(', '),
         sigla,
@@ -487,7 +475,6 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
         onFiltersChange={onFiltersChange}
         authorOptions={authorOptions}
         voiceCountOptions={voiceCountOptions}
-        genreOptions={genreOptions}
         languageOptions={languageOptions}
         resultCount={filteredWorks.length}
         totalCount={works.length}

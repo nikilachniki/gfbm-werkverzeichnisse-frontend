@@ -21,7 +21,6 @@ export interface WorksFilters {
   yearFrom: string
   yearTo: string
   completeEditions: string
-  genres: string[]
   languages: string[]
   manuscripts: string
 }
@@ -37,7 +36,6 @@ export const defaultWorksFilters: WorksFilters = {
   yearFrom: '',
   yearTo: '',
   completeEditions: '',
-  genres: [],
   languages: [],
   manuscripts: '',
 }
@@ -54,7 +52,6 @@ export function hasActiveFilters(filters: WorksFilters): boolean {
     filters.yearFrom !== '' ||
     filters.yearTo !== '' ||
     filters.completeEditions.trim() !== '' ||
-    filters.genres.length > 0 ||
     filters.languages.length > 0 ||
     filters.manuscripts.trim() !== ''
   )
@@ -105,7 +102,6 @@ function fullDocument(work: Work): SearchDocument {
         { text: findPrintBySiglum(siglum)?.shortTitle ?? '', numbers: true },
       ]),
       ...work.completeEditions.map((text) => ({ text })),
-      ...work.genres.map((text) => ({ text })),
       ...work.languages.map((text) => ({ text })),
       ...getExpressions(work).map((expression) => ({ text: expression.lv ?? '' })),
     ])
@@ -172,9 +168,6 @@ export function searchWorks(works: Work[], filters: WorksFilters): { works: Work
       completeEditions &&
       !work.completeEditions.some((value) => normalize(value).includes(completeEditions))
     ) {
-      return false
-    }
-    if (filters.genres.length > 0 && !filters.genres.some((genre) => work.genres.includes(genre))) {
       return false
     }
     if (

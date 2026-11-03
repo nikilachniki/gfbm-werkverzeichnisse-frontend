@@ -46,7 +46,6 @@ function PrintContentsTable({ contents }: { contents: WorkInPrint[] }) {
   )
   const hasPieces = contents.some((content) => content.piece)
   const hasNotes = contents.some((content) => content.note)
-  const hasGenres = works.some((work) => work.genres.length > 0)
   const hasLanguages = works.some((work) => work.languages.length > 0)
 
   // Teile haben keine eigene Detailseite, siehe WorksPage.handleRowClick.
@@ -69,7 +68,6 @@ function PrintContentsTable({ contents }: { contents: WorkInPrint[] }) {
             <TableCell>Stimmen</TableCell>
             <TableCell>{authorOrSourceHeader}</TableCell>
             <TableCell>Gesamtausgabe</TableCell>
-            {hasGenres && <TableCell>Gattung</TableCell>}
             {hasLanguages && <TableCell>Sprache</TableCell>}
             {hasNotes && <TableCell>Zusatz</TableCell>}
           </TableRow>
@@ -109,7 +107,6 @@ function PrintContentsTable({ contents }: { contents: WorkInPrint[] }) {
                   <AuthorOrSourceText authors={textAuthorLabels(work)} sources={work.textSources} />
                 </TableCell>
                 <TableCell>{work.completeEditions.join(', ')}</TableCell>
-                {hasGenres && <TableCell>{work.genres.join(', ')}</TableCell>}
                 {hasLanguages && <TableCell>{work.languages.join(', ')}</TableCell>}
                 {hasNotes && <TableCell>{content.note}</TableCell>}
               </TableRow>
