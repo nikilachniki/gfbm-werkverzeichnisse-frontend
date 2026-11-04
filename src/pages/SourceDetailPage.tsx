@@ -21,11 +21,12 @@ import { Section } from '../components/Section.tsx'
 import { SourceRism } from '../components/SourceRism.tsx'
 import { SourceReferences, SourceTitlePage, TextWithSourceLinks } from '../components/SourceText.tsx'
 import { authorOrSourceLabel, AuthorOrSourceText } from '../helpers.tsx'
-import type { WorkInSource } from '../types.ts'
+import type { UnassignedPiece, WorkInSource } from '../types.ts'
 import {
   catalogue,
   findSourceBySlug,
   getSourceContents,
+  getUnassignedPieces,
   noteText,
   SOURCE_KIND_LABELS,
   textAuthorLabels,
@@ -34,16 +35,18 @@ import {
 
 // Die Stuecke einer Quelle in ihrer Reihenfolge. Titel und Stimmenzahl der Quelle
 // stehen, wo sie abweichen, beim Stueck. Ein Klick fuehrt zum Werk.
-function ContentsTable({ contents }: { contents: WorkInSource[] }) {
+// Stuecke ohne Werk stehen danach und fuehren nirgendwohin.
+function ContentsTable({ contents, unassigned }: { contents: WorkInSource[]; unassigned: UnassignedPiece[] }) {
   const navigate = useNavigate()
   const works = contents.map(({ work }) => work)
   const authorOrSourceHeader = authorOrSourceLabel(
     works.some((work) => work.textAuthors.length > 0),
     works.some((work) => work.textSources.length > 0),
   )
-  const hasPositions = contents.some((content) => content.position || content.part)
-  const hasDatings = contents.some((content) => content.dating)
-  const hasNotes = contents.some((content) => content.note)
+  const pieces = [...contents, ...unassigned]
+  const hasPositions = pieces.some((piece) => piece.position || piece.part)
+  const hasDatings = pieces.some((piece) => piece.dating)
+  const hasNotes = pieces.some((piece) => piece.note)
   const hasLanguages = works.some((work) => work.languages.length > 0)
 
   return (
@@ -109,6 +112,28 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
               </TableRow>
             )
           })}
+          {unassigned.map((piece, index) => (
+            <TableRow key={`ohne-werk|${index}`}>
+              {hasPositions && (
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  {[piece.position, piece.part ? `Teil ${piece.part}` : null].filter(Boolean).join(', ')}
+                </TableCell>
+              )}
+              <TableCell />
+              <TableCell>
+                {piece.title}
+                <Typography variant="body2" color="text.secondary">
+                  Keinem Werk zugeordnet
+                </Typography>
+              </TableCell>
+              <TableCell>{piece.voices}</TableCell>
+              <TableCell />
+              <TableCell />
+              {hasLanguages && <TableCell />}
+              {hasDatings && <TableCell>{piece.dating}</TableCell>}
+              {hasNotes && <TableCell>{piece.note}</TableCell>}
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </TableContainer>
@@ -131,6 +156,7 @@ export function SourceDetailPage() {
   }
 
   const contents = getSourceContents(source)
+  const unassigned = getUnassignedPieces(source)
   const hasRism = Boolean(source.rismLabel || source.rismUrl)
   // Je Werk einmal, auch wenn es zusaetzlich als Fassung im selben Druck steht
   const earliestCount = new Set(contents.filter((content) => content.isEarliestPrint).map(({ work }) => work['@id'])).size
@@ -176,6 +202,7 @@ export function SourceDetailPage() {
             labelWidth={120}
             value={earliestCount > 0 ? `${contents.length}, davon ${earliestCount} hier zuerst belegt` : contents.length}
           />
+          <Fact label="Ohne Werk" labelWidth={120} value={unassigned.length > 0 ? unassigned.length : ''} />
           <Fact label="Quellenart" labelWidth={120} value={source.sourceType ?? ''} />
           <Fact label="Stimmbücher" labelWidth={120} value={source.partbooks ?? ''} />
           <Fact label="RISM" labelWidth={120} value={hasRism ? <SourceRism source={source} /> : ''} />
@@ -228,9 +255,9 @@ export function SourceDetailPage() {
           </Section>
         )}
 
-        <Section title="Enthaltene Werke" count={contents.length}>
+        <Section title="Enthaltene Werke" count={contents.length + unassigned.length}>
           <Box sx={{ overflowX: 'auto' }}>
-            <ContentsTable contents={contents} />
+            <ContentsTable contents={contents} unassigned={unassigned} />
           </Box>
         </Section>
 

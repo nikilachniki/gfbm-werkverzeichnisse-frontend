@@ -1,5 +1,5 @@
 import type { Source, SourceKind, WorkInSource } from '../types'
-import { getParts, getSourceContents, sources } from '../catalogueData'
+import { getParts, getSourceContents, getUnassignedPieces, sources } from '../catalogueData'
 import { inYearRange, matchesNumber } from './filterFields'
 import { indexDocument, parseQuery, scoreDocument, type SearchDocument } from './textSearch'
 
@@ -93,6 +93,7 @@ function fullDocument(summary: SourceSummary): SearchDocument {
       { text: source.sourceType ?? '' },
       ...source.references.map((reference) => ({ text: `${reference.catalogue} ${reference.value}` })),
       ...source.items.flatMap((item) => [{ text: item.library ?? '' }, { text: item.place ?? '' }, { text: item.shelfmark ?? '' }]),
+      ...getUnassignedPieces(source).map((piece) => ({ text: piece.title, numbers: true })),
       ...summary.languages.map((text) => ({ text })),
     ]),
   )
@@ -101,11 +102,12 @@ function fullDocument(summary: SourceSummary): SearchDocument {
 // Titel der enthaltenen Werke, auch in der Schreibung der Quelle
 function worksTitleDocument(summary: SourceSummary): SearchDocument {
   return cachedDocument(`works|${summary.source['@id']}`, () =>
-    indexDocument(
-      summary.contents.flatMap(({ work, titleInSource }) =>
+    indexDocument([
+      ...summary.contents.flatMap(({ work, titleInSource }) =>
         [work.title, ...work.variantTitles, titleInSource ?? ''].map((text) => ({ text, numbers: true })),
       ),
-    ),
+      ...getUnassignedPieces(summary.source).map((piece) => ({ text: piece.title, numbers: true })),
+    ]),
   )
 }
 

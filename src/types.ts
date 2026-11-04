@@ -86,7 +86,8 @@ export interface RawExpression {
 }
 
 export interface RawContent {
-  embodies: string
+  // Fehlt, wenn das Stueck keinem Werk zugeordnet ist; dann ist titleInSource gesetzt
+  embodies?: string
   position?: string
   part?: string
   titleInSource?: string
@@ -279,6 +280,16 @@ export interface WorkInSource {
   position: string | null
   part: string | null
   titleInSource: string | null
+  voices: number | null
+  dating: string | null
+  note: string | null
+}
+
+// Ein Stueck in einer Quelle, das keinem Werk zugeordnet ist
+export interface UnassignedPiece {
+  title: string
+  position: string | null
+  part: string | null
   voices: number | null
   dating: string | null
   note: string | null

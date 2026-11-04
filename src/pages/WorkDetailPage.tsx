@@ -276,11 +276,9 @@ function ManuscriptCard({ item }: { item: WorkInSource }) {
           <Fact label="Datierung" value={item.dating ?? ''} />
           <Fact label="Bemerkung" value={item.note ?? ''} />
           <Fact label="Quellenart" value={source.sourceType ?? ''} />
-          {source.notes
-            .filter((note) => note.label !== 'Weitere Stücke')
-            .map((note) => (
-              <Fact key={note.html} label={note.label ?? 'Anmerkung'} value={noteText(note)} />
-            ))}
+          {source.notes.map((note) => (
+            <Fact key={note.html} label={note.label ?? 'Anmerkung'} value={noteText(note)} />
+          ))}
           <Fact label="Literatur" value={source.literature.length > 0 ? <Linkified text={source.literature.join(' ')} /> : ''} />
           <Button component={RouterLink} to={sourcePath(source)} size="small" sx={{ alignSelf: 'flex-start' }}>
             Zur Quelle

@@ -32,6 +32,7 @@ import type {
   RawWork,
   Source,
   SourceKind,
+  UnassignedPiece,
   Volume,
   VolumeContent,
   Work,
@@ -146,7 +147,7 @@ function formatMeter(meter: RawExpression['meter']): string {
 const contentVoices = new Map<string, number[]>()
 for (const manifestation of rawManifestations) {
   for (const content of manifestation.contents ?? []) {
-    if (content.voices !== undefined) {
+    if (content.embodies && content.voices !== undefined) {
       contentVoices.set(content.embodies, [...(contentVoices.get(content.embodies) ?? []), content.voices])
     }
   }
@@ -318,11 +319,26 @@ const sourceBySiglum = new Map(sources.map((source) => [source.siglum, source]))
 // Stuecke je Quelle und je Werk
 const contentsBySource = new Map<string, WorkInSource[]>()
 const contentsByWork = new Map<string, WorkInSource[]>()
+const unassignedBySource = new Map<string, UnassignedPiece[]>()
 for (const raw of rawManifestations) {
   const source = sourceById.get(raw['@id'])
   for (const content of raw.contents ?? []) {
-    const work = workByExpressionId.get(content.embodies)
-    if (!source || !work) {
+    if (source && !content.embodies) {
+      unassignedBySource.set(source['@id'], [
+        ...(unassignedBySource.get(source['@id']) ?? []),
+        {
+          title: content.titleInSource ?? '',
+          position: content.position ?? null,
+          part: content.part ?? null,
+          voices: content.voices ?? null,
+          dating: content.dating ?? null,
+          note: content.note ?? null,
+        },
+      ])
+      continue
+    }
+    const work = content.embodies ? workByExpressionId.get(content.embodies) : undefined
+    if (!source || !work || !content.embodies) {
       continue
     }
     const item: WorkInSource = {
@@ -366,7 +382,7 @@ const YEAR_NUMBER_SIGLUM = /^\d{4}-\d+/
 // Der frueheste Druck eines Werks ergibt sich aus dem Datum und braucht kein eigenes
 // Feld. Innerhalb eines Jahres entscheidet die laufende Nummer der Sigle; fehlt sie,
 // bleiben alle Drucke des Jahres markiert, statt einen zu raten. Siehe
-// lassoDBData/docs/entscheidungen.md, Abschnitt 6.
+// lassoDBData/docs/entscheidungen.md, Abschnitt 7.
 function markEarliestPrints(list: WorkInSource[]): void {
   const dated = list.filter(({ source }) => source.kind === 'print' && source.year !== null)
   if (dated.length === 0) {
@@ -387,6 +403,10 @@ for (const list of contentsByWork.values()) {
 
 export function getSourceContents(source: Pick<Source, '@id'>): WorkInSource[] {
   return contentsBySource.get(source['@id']) ?? []
+}
+
+export function getUnassignedPieces(source: Pick<Source, '@id'>): UnassignedPiece[] {
+  return unassignedBySource.get(source['@id']) ?? []
 }
 
 export function getWorkSources(work: Pick<Work, '@id'>): WorkInSource[] {
