@@ -16,24 +16,23 @@ import {
   type GridRowParams,
   type GridSortModel,
 } from '@mui/x-data-grid'
-import { PrintChip } from '../components/PrintChip.tsx'
 import { SiglumChip } from '../components/SiglumChip.tsx'
-import { EARLIEST_SOURCE_HINT } from '../components/WorkTitle.tsx'
+import { SourceChip } from '../components/SourceChip.tsx'
 import { AuthorOrSourceText } from '../helpers.tsx'
-import type { TitleBasis, Work } from '../types.ts'
+import type { Work } from '../types.ts'
 import {
-  formatEditionAppearance,
-  getManuscripts,
+  catalogue,
+  compareNatural,
+  formatCitation,
   getParts,
   getPerson,
+  getWorkSources,
   isBaseWork,
-  mainTitle,
   textAuthorLabels,
-  workPrintSigla,
-  workSlug,
+  workLink,
   works,
   type TextAuthorLabel,
-} from '../worksData.ts'
+} from '../catalogueData.ts'
 import { collectDistinct, hasActiveFilters, searchWorks, type WorksFilters } from '../search/filterWorks.ts'
 import { Highlight } from '../search/Highlight.tsx'
 import { WorksGridToolbar } from '../search/WorksGridToolbar.tsx'
@@ -44,19 +43,13 @@ interface Siglum {
   link: string | null
 }
 
-interface PrintSiglum {
-  siglum: string
-  firstPrint: boolean
-}
-
 interface Row {
   id: string
-  lv: string
+  number: string
   title: string
-  titleBasis: TitleBasis
   voiceCounts: string
   prints: string
-  printSigla: PrintSiglum[]
+  printSigla: { siglum: string }[]
   textAuthorOrSource: string
   textAuthors: TextAuthorLabel[]
   textSources: string[]
@@ -68,39 +61,16 @@ interface Row {
   // Treffer der aktiven Suche/Filter. Basiswerke, die nur als Rahmen fuer
   // einen passenden Teil erscheinen, sind keine Treffer.
   isMatch: boolean
-  // Gesamtwerk eines Teils (@id), fuer Gesamtwerke null
-  isPartOf: string | null
+  work: Work
   // Anzahl der in der Tabelle zugeordneten Teile (nur Basiswerke)
   partCount: number
   expanded: boolean
 }
 
-// LV-Nummern sind keine reinen Zahlen, etwa "100-2" oder "100 (I)". Ein
-// simpler String-Vergleich sortiert "10" vor "2"; der numerische Vergleich
-// von Intl behandelt die eingebetteten Zahlen dagegen als Zahlen.
-const lvComparator = (a: string, b: string) => a.localeCompare(b, 'de', { numeric: true })
-
 // Von Hand auf- oder zugeklappte Gruppen, je Gesamtwerk (@id), siehe WorksPage.
 const expandedOverrides = new Map<string, boolean>()
 
-// Ein Werk hat entweder eine LV-Nummer oder, wenn es nur handschriftlich
-// ueberliefert ist, eine Nummer aus dem LV-Anhang. Die Spalte bleibt "LV"
-// ueberschrieben, zeigt fuer Anhang-Werke aber deren eigene Nummer, statt
-// leer zu bleiben.
-function formatLvColumn(work: Work): string {
-  if (work.lv !== null) {
-    return work.lv
-  }
-  if (work.lvAnh !== null) {
-    return `Anh. ${work.lvAnh}`
-  }
-  return ''
-}
-
-// Ein Werk hat laut fachlicher Auskunft entweder einen Textdichter oder eine
-// Textprovenienz, praktisch nie beides (in den Rohdaten 2 von 1.945 Werken).
-// Fuer diese Ausnahmefaelle werden beide Werte gemeinsam angezeigt, statt
-// eines davon stillschweigend zu verwerfen.
+// Hat ein Werk Textdichter und Textprovenienz, stehen beide nebeneinander.
 function formatTextAuthorOrSource(work: Work): string {
   const authors = textAuthorLabels(work)
     .map((author) => author.name)
@@ -112,21 +82,22 @@ function formatTextAuthorOrSource(work: Work): string {
   return authors || sources
 }
 
-// Die distinkten RISM-Sigel der Handschriften-Zeugnisse eines Werks, je mit
-// dem Online-Katalog-Link des ersten Zeugnisses, das fuer dieses Sigel einen
-// Link traegt. Mehrere Zeugnisse koennen dasselbe Sigel (dieselbe Bibliothek)
-// tragen, etwa bei mehreren Signaturen derselben Sammlung; fuer die
-// Uebersichtsspalte genuegt ein Vorkommen je Sigel statt einer Zeile je
-// Zeugnis wie in der Detailansicht.
+// Die Bibliothekssigel der Handschriften eines Werks, je mit dem ersten
+// Katalog-Link. Fuer die Uebersicht genuegt ein Vorkommen je Sigel.
 function manuscriptSigla(work: Work): Siglum[] {
   const links = new Map<string, string | null>()
-  for (const manuscript of getManuscripts(work)) {
-    if (!manuscript.rismSiglum) {
+  for (const { source } of getWorkSources(work)) {
+    if (source.kind !== 'manuscript') {
       continue
     }
-    const existing = links.get(manuscript.rismSiglum)
-    if (existing === undefined || (!existing && manuscript.link)) {
-      links.set(manuscript.rismSiglum, manuscript.link)
+    for (const item of source.items) {
+      if (!item.librarySiglum) {
+        continue
+      }
+      const existing = links.get(item.librarySiglum)
+      if (existing === undefined || (!existing && item.links[0])) {
+        links.set(item.librarySiglum, item.links[0] ?? null)
+      }
     }
   }
   return Array.from(links.entries())
@@ -134,7 +105,7 @@ function manuscriptSigla(work: Work): Siglum[] {
     .sort((a, b) => a.siglum.localeCompare(b.siglum))
 }
 
-// Sigel in den Uebersichtsspalten, siehe SiglumChip und PrintChip.
+// Sigel in den Uebersichtsspalten, siehe SiglumChip und SourceChip.
 const VISIBLE_SIGLA = 1
 const SIGLUM_CHIP_MAX_WIDTH = 76
 
@@ -198,10 +169,10 @@ function SiglaCell<T extends { siglum: string }>({
 function createColumns(onToggle: (workId: string) => void, query: string): GridColDef<Row>[] {
   return [
   {
-    field: 'lv',
-    headerName: 'LV',
-    width: 105,
-    sortComparator: lvComparator,
+    field: 'number',
+    headerName: catalogue.catalogueAbbreviation,
+    width: 130,
+    sortComparator: compareNatural,
     renderCell: (params: GridRenderCellParams<Row>) => {
       const row = params.row
       return (
@@ -228,7 +199,7 @@ function createColumns(onToggle: (workId: string) => void, query: string): GridC
             <span style={{ width: 32, flexShrink: 0 }} />
           )}
           <span>
-            <Highlight text={row.lv} query={query} />
+            <Highlight text={row.number} query={query} />
           </span>
         </Stack>
       )
@@ -239,28 +210,15 @@ function createColumns(onToggle: (workId: string) => void, query: string): GridC
     headerName: 'Werktitel',
     // Titel und Textdichter teilen sich den freien Platz, die uebrigen Spalten
     // sind fest und knapp, damit die Tabelle in die Fensterbreite passt.
-    // Abgeschnittene Titel stehen vollstaendig im Tooltip. Titel nach der
-    // fruehesten Quelle kursiv, wie WorkTitle (das MUI-Tooltip dort wuerde mit
-    // dem title-Attribut kollidieren).
+    // Abgeschnittene Titel stehen vollstaendig im Tooltip.
     flex: 1,
     minWidth: 160,
     maxWidth: 300,
     renderCell: (params: GridRenderCellParams<Row>) => (
       <Box
         component="span"
-        title={
-          params.row.titleBasis === 'earliestSource'
-            ? `${params.row.title}
-${EARLIEST_SOURCE_HINT}`
-            : params.row.title
-        }
-        sx={{
-          display: 'block',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontStyle: params.row.titleBasis === 'earliestSource' ? 'italic' : undefined,
-        }}
+        title={params.row.title}
+        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
         <Highlight text={params.row.title} query={query} />
       </Box>
@@ -270,15 +228,13 @@ ${EARLIEST_SOURCE_HINT}`
   {
     field: 'prints',
     headerName: 'Drucke',
-    minWidth: 150,
+    minWidth: 170,
     // Wie bei den Handschriften: der Zellwert bleibt die Sigel-Liste als Text
-    // (Sortierung, Export), angezeigt werden Chips, siehe PrintChip.
+    // (Sortierung, Export), angezeigt werden Chips.
     renderCell: (params: GridRenderCellParams<Row>) => (
       <SiglaCell
         sigla={params.row.printSigla}
-        renderChip={(entry) => (
-          <PrintChip siglum={entry.siglum} firstPrint={entry.firstPrint} maxWidth={SIGLUM_CHIP_MAX_WIDTH} />
-        )}
+        renderChip={(entry) => <SourceChip siglum={entry.siglum} maxWidth={SIGLUM_CHIP_MAX_WIDTH} />}
       />
     ),
   },
@@ -297,7 +253,7 @@ ${EARLIEST_SOURCE_HINT}`
   },
   {
     field: 'editions',
-    headerName: 'Gesamtausgabe',
+    headerName: 'Ausgaben',
     width: 170,
     renderCell: (params: GridRenderCellParams<Row>) => (
       <Highlight text={params.row.editions} query={query} />
@@ -306,7 +262,7 @@ ${EARLIEST_SOURCE_HINT}`
   {
     field: 'languages',
     headerName: 'Sprache',
-    width: 85,
+    width: 105,
     renderCell: (params: GridRenderCellParams<Row>) => <Highlight text={params.row.languages} query={query} />,
   },
   {
@@ -360,7 +316,7 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
   // gemountet wird und die Gruppen sonst jedes Mal zuklappen wuerden.
   const [overrides, setOverrides] = useState(() => new Map(expandedOverrides))
   // Ohne gewaehlte Spalte: bei aktiver Volltextsuche nach Relevanz, sonst
-  // nach LV. Ein dritter Klick auf eine Spaltenkopf kehrt dorthin zurueck.
+  // nach Nummer. Ein dritter Klick auf eine Spaltenkopf kehrt dorthin zurueck.
   const [sortModel, setSortModel] = useState<GridSortModel>([])
 
   const rows = useMemo<Row[]>(() => {
@@ -374,25 +330,30 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
 
     const toRow = (work: Work, extra: Partial<Row>): Row => {
       const sigla = manuscriptSigla(work)
-      const printSigla = workPrintSigla(work)
+      const printSigla = Array.from(
+        new Set(
+          getWorkSources(work)
+            .filter(({ source }) => source.kind !== 'manuscript')
+            .map(({ source }) => source.siglum),
+        ),
+      )
       return {
         id: work['@id'],
-        lv: formatLvColumn(work),
-        title: mainTitle(work),
-        titleBasis: work.preferredTitleBasis,
+        number: work.number,
+        title: work.title,
         voiceCounts: work.voiceCounts.join(', '),
         prints: printSigla.join(', '),
-        printSigla: printSigla.map((siglum) => ({ siglum, firstPrint: work.prints.includes(siglum) })),
+        printSigla: printSigla.map((siglum) => ({ siglum })),
         textAuthorOrSource: formatTextAuthorOrSource(work),
         textAuthors: textAuthorLabels(work),
         textSources: work.textSources,
-        editions: work.editionAppearances.map(formatEditionAppearance).join('; '),
+        editions: work.citations.map(formatCitation).join('; '),
         languages: work.languages.join(', '),
         siglaText: sigla.map((entry) => entry.siglum).join(', '),
         sigla,
         isPart: !isBaseWork(work),
         isMatch: filtering && matchedIds.has(work['@id']),
-        isPartOf: work.isPartOf,
+        work,
         partCount: 0,
         expanded: false,
         ...extra,
@@ -423,13 +384,13 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
     if (sort?.sort) {
       const direction = sort.sort === 'desc' ? -1 : 1
       const field = sort.field as keyof Row
-      baseRows.sort((a, b) => direction * lvComparator(String(a.row[field] ?? ''), String(b.row[field] ?? '')))
+      baseRows.sort((a, b) => direction * compareNatural(String(a.row[field] ?? ''), String(b.row[field] ?? '')))
     } else if (scores.size > 0) {
       const score = ({ row, parts }: (typeof baseRows)[number]) =>
         Math.max(scores.get(row.id) ?? 0, ...parts.map((part) => scores.get(part['@id']) ?? 0))
-      baseRows.sort((a, b) => score(b) - score(a) || lvComparator(a.row.lv, b.row.lv))
+      baseRows.sort((a, b) => score(b) - score(a) || compareNatural(a.row.number, b.row.number))
     } else {
-      baseRows.sort((a, b) => lvComparator(a.row.lv, b.row.lv))
+      baseRows.sort((a, b) => compareNatural(a.row.number, b.row.number))
     }
 
     return baseRows.flatMap(({ parts, expanded, row }) => [
@@ -458,12 +419,8 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
   // Teile haben keine eigene Detailseite: ein Klick fuehrt zum Basiswerk, das
   // den Teil in seiner Teile-Tabelle hervorhebt und dorthin scrollt.
   const handleRowClick = (params: GridRowParams<Row>) => {
-    const row = params.row
-    if (row.isPartOf) {
-      navigate(`/werk/${workSlug({ '@id': row.isPartOf })}`, { state: { focusPart: row.id } })
-      return
-    }
-    navigate(`/werk/${workSlug({ '@id': row.id })}`)
+    const link = workLink(params.row.work)
+    navigate(link.to, { state: link.state })
   }
 
   return (
@@ -495,7 +452,7 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
           density="compact"
           disableRowSelectionOnClick
           getRowClassName={(params) =>
-            [params.row.isPart ? 'lasso-row-part' : '', params.row.isMatch ? 'lasso-row-match' : ''].join(' ')
+            [params.row.isPart ? 'wv-row-part' : '', params.row.isMatch ? 'wv-row-match' : ''].join(' ')
           }
           onRowClick={handleRowClick}
           sx={{
@@ -507,7 +464,7 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
             },
             // Alle Zeilen sind klickbar (Teile fuehren zu ihrem Basiswerk). Die
             // Darstellung traegt zwei Informationen, je ueber ein eigenes Mittel:
-            //   - Struktur (Teil eines Werks): Einrueckung und Pfeil in der LV-Spalte
+            //   - Struktur (Teil eines Werks): Einrueckung und Pfeil in der Nummernspalte
             //   - Suche: gelber Balken am linken Rand der Trefferzeilen, dazu der
             //     gelb markierte Suchbegriff im Text (siehe Highlight). Basiswerke,
             //     die nur als Rahmen fuer einen passenden Teil erscheinen, bleiben
@@ -517,8 +474,8 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
             '& .MuiDataGrid-row': { cursor: 'pointer' },
             // Ausgeklappte Teile leicht hinterlegt, damit sie sich als Gruppe
             // von den Basiswerken abheben.
-            '& .lasso-row-part:not(:hover)': { bgcolor: 'action.hover' },
-            '& .lasso-row-match': { boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.highlight.bar}` },
+            '& .wv-row-part:not(:hover)': { bgcolor: 'action.hover' },
+            '& .wv-row-match': { boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.highlight.bar}` },
             // Kein Fokusrahmen um einzelne Zellen: die Tabelle wird zeilenweise
             // bedient, ein Rahmen um die angeklickte Zelle wirkt wie eine
             // Hervorhebung dieser einen Zelle.

@@ -104,22 +104,12 @@ export function inYearRange(year: number | null, from: string, to: string): bool
   return (from === '' || year >= Number(from)) && (to === '' || year <= Number(to))
 }
 
-// LV-Suche: eine reine Zahl trifft das Werk mit dieser Nummer samt seinen
-// Teilen ("100" findet 100, 100-1, 100-2 ...), sonst muss die Nummer genau
-// passen ("100-2"). Ein Teiltreffer wie bei der freien Suche waere hier
-// unbrauchbar, "10" fuehrte sonst auch zu 100, 210 usw. "Anh. 5" sucht im
-// LV-Anhang.
-export function matchesLv(
-  item: { lv: string | null; lvBase: number | null; lvAnh?: number | null },
-  input: string,
-): boolean {
-  const value = input.trim().toLocaleLowerCase('de-DE')
-  const anh = value.match(/^anh\.?\s*(\d+)$/)
-  if (anh) {
-    return item.lvAnh === Number(anh[1])
-  }
-  if (/^\d+$/.test(value)) {
-    return item.lvBase === Number(value)
-  }
-  return (item.lv ?? '').toLocaleLowerCase('de-DE').replace(/\s+/g, '') === value.replace(/\s+/g, '')
+// Suche nach der Katalognummer: eine genaue Nummer oder eine Nummer mit ihren
+// Teilen ("100" findet 100 und 100-2). Ein Teiltreffer wie bei der freien Suche
+// waere hier unbrauchbar, "10" fuehrte sonst auch zu 100, 210 usw.
+export function matchesNumber(number: string, input: string): boolean {
+  const normalize = (value: string) => value.toLocaleLowerCase('de-DE').replace(/\s+/g, '')
+  const value = normalize(input)
+  const candidate = normalize(number)
+  return candidate === value || candidate.startsWith(`${value}-`)
 }

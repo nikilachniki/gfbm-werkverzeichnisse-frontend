@@ -1,254 +1,314 @@
-// Entspricht dem Feldmodell aus lassoDBData/schema/entry.schema.json.
-// Ein Werk kann in mehreren Drucken erscheinen, siehe Work.entries.
+// Rohdaten nach lassoDBData/schema/catalogue.schema.json (Branch
+// werkverzeichnis-vorlage). Die Seiten arbeiten nicht direkt damit, sondern mit
+// den Anzeigemodellen weiter unten, siehe catalogueData.ts.
 
-export interface Work {
-  '@id': string
-  '@type': 'Work'
-  lv: string | null
-  lvBase: number | null
-  lvPart: number | null
-  lvAnh: number | null
-  // Teil-Beziehung: ein Teil wie "100-2" verweist auf sein Gesamtwerk
-  // ("work:100"), das Gesamtwerk listet seine Teile.
-  isPartOf: string | null
-  hasPart: string[]
-  // Normalisierter Werktitel . Die abweichenden Drucktitel stehen in variantTitles.
-  preferredTitle: string | null
-  preferredTitleBasis: TitleBasis
-  variantTitles: string[]
-  voiceCounts: number[]
-  // Sigel der Erstdrucke, aus den Eintraegen
-  prints: string[]
-  // Alle Drucke, in denen das Werk steht, auch Nachdrucke, chronologisch.
-  // Das Register fuehrt nur Grundnummern, Teile haben deshalb keine eigenen.
-  printAppearances: PrintAppearance[]
-  // Personen-IDs (person:...), nicht Rohwerte, siehe Person
-  textAuthors: string[]
-  // Teilmenge von textAuthors, deren Zuschreibung in allen Eintraegen unsicher
-  // ist (Rohwert mit "?", etwa "Ludwig Helmbold?")
-  uncertainTextAuthors: string[]
-  textSources: string[]
-  // Fundstellen in den Baenden der Gesamtausgaben, siehe Edition
-  editionAppearances: EditionAppearance[]
-  // Gattung und Sprache aus den Eintraegen, Rohwerte ohne Dubletten
-  genres: string[]
-  languages: string[]
-  entries: string[]
-  manuscripts: string[]
-  // Fassungen des Werks, siehe Expression
-  expressions: string[]
+export type LanguageText = Record<string, string>
+
+export interface RawTitle {
+  text: LanguageText
+  type?: string
 }
 
-// Ein Werk in einem Druck laut Gesamtregister: Stuecknummer im Druck und
-// ein Zusatz wie "nur II." oder "Vers 8"
-export interface PrintAppearance {
-  inPrint: string
-  piece: string | null
-  note?: string
+export interface RawIdentifier {
+  list: string
+  value: string
 }
 
-// Ein Werk oder eine Fassung in einem Band der Gesamtausgabe: mit Stuecknummer
-// oder Seite, bei Bedarf im Anhang des Bandes und mit Zusatz wie "†"
-export interface EditionAppearance {
-  inVolume: string
+export interface RawContributor {
+  agent: string
+  role: string
+  certainty?: string
+}
+
+export interface RawNote {
+  label?: string
+  html: string
+}
+
+// Fundstelle: Verweis auf einen Band samt Stelle
+export interface Citation {
+  inBibliography: string
   number?: string
   page?: number
-  appendix?: string
+  section?: string
   note?: string
 }
 
-// Eine Gesamtausgabe (GA, GA², NR) mit ihren Baenden. Moderne Editionen, keine
-// Quellen, deshalb getrennt von den Drucken.
-export interface Edition {
+export interface RawDate {
+  date?: string
+  description?: string
+  certainty?: string
+}
+
+export interface RawPublication {
+  label?: string
+  startDate?: string
+  endDate?: string
+  place?: string
+  publisherName?: string
+}
+
+export interface RawWork {
   '@id': string
-  '@type': 'Edition'
-  siglum: string
-  title: string
-  volumes: Volume[]
+  titles: RawTitle[]
+  identifiers?: RawIdentifier[]
+  contributors?: RawContributor[]
+  status?: string
+  genres?: string[]
+  textSources?: string[]
+  realisedIn?: string[]
+  partOfWork?: string
+  citations?: Citation[]
+  sameAs?: string[]
+  notes?: RawNote[]
 }
 
-export interface Volume {
+export interface RawExpression {
   '@id': string
-  '@type': 'Volume'
-  volume: string
-  title: string | null
-  editors: string[]
-  place: string | null
-  publisher: string | null
-  year: number | null
-  parts: VolumePart[]
+  label: string
+  titles?: RawTitle[]
+  identifiers?: RawIdentifier[]
+  contributors?: RawContributor[]
+  languages?: string[]
+  instrumentation?: string
+  partOfExpression?: string
+  key?: { pitch?: string; accidental?: string; mode?: string; description?: string }
+  meter?: { meterCount?: number; meterUnit?: number; meterSymbol?: string; description?: string }
+  tempo?: string
+  duration?: string
+  incipit?: { pae?: string; incipitText?: LanguageText }
+  dateCreated?: RawDate
+  placeCreated?: string
+  textSources?: string[]
+  citations?: Citation[]
+  sameAs?: string[]
+  notes?: RawNote[]
 }
 
-// Ein Teilband wie "VIII,I": Ziel von Fundstellen, die bibliographischen Angaben
-// stehen am Band.
-export interface VolumePart {
+export interface RawContent {
+  embodies: string
+  position?: string
+  part?: string
+  titleInSource?: string
+  voices?: number
+  dating?: string
+  note?: string
+}
+
+export interface RawManifestation {
   '@id': string
-  '@type': 'VolumePart'
-  volume: string
+  titles: RawTitle[]
+  classifications?: string[]
+  identifiers?: RawIdentifier[]
+  contributors?: RawContributor[]
+  titlePages?: { html: string }[]
+  publication?: RawPublication
+  partOfManifestation?: string
+  contents?: RawContent[]
+  sourceType?: string
+  partbooks?: string
+  literature?: string[]
+  sameAs?: string[]
+  notes?: RawNote[]
 }
 
-export interface EditionsFile {
-  '@context': string
-  items: Edition[]
-}
-
-// Woher der preferredTitle stammt: normalisierter Titel oder frueheste Quelle
-export type TitleBasis = 'normalized' | 'earliestSource'
-
-export interface WorksFile {
-  '@context': string
-  items: Work[]
-}
-
-// Eine Werk-Fassung im Sinne von FRBR (Expression)
-export interface Expression {
+export interface RawItem {
   '@id': string
-  '@type': 'Expression'
-  lv: string
-  lvBase: number
-  pars: string
-  realizationOf: string
-  preferredTitle: string | null
-  preferredTitleBasis: TitleBasis
-  variantTitles: string[]
-  voiceCounts: number[]
-  prints: string[]
-  textAuthors: string[]
-  uncertainTextAuthors: string[]
-  textSources: string[]
-  editionAppearances: EditionAppearance[]
-  genres: string[]
-  languages: string[]
-  entries: string[]
+  label: string
+  keeper?: string
+  shelfmark?: string
+  formerShelfmark?: string
+  exemplifies: string
+  sameAs?: string[]
+  notes?: RawNote[]
 }
 
-export interface ExpressionsFile {
-  '@context': string
-  items: Expression[]
-}
-
-// Ein Eintrag entspricht einem Werk in genau einem Druck, nicht dem Werk
-// selbst. Dieselbe Komposition kann als mehrere Eintraege auftauchen, wenn
-// sie in mehreren Drucken erschienen ist; das Work-Objekt fasst sie zusammen.
-export interface CatalogueEntry {
+export interface RawPerson {
   '@id': string
-  '@type': 'CatalogueEntry'
-  lv: string | null
-  lvBase: number | null
-  lvPart: number | null
-  lvVariant: string | null
-  // Titel in der Schreibung des Drucks (diplomatisch)
-  title: string | null
-  // Werktitel in normalisierter Schreibung, siehe Work.preferredTitle
-  normalizedTitle: string | null
-  normalizedTitleBasis: string | null
-  voices: number | null
-  voicesRaw?: string
-  firstPrint: string | null
-  firstPrintYear: number | null
-  firstPrintNo: number | null
-  // Rohwert, wie ihn der Druck schreibt; die Person dazu in textAuthorPerson
-  textAuthor: string | null
-  textAuthorPerson: string | null
-  textAuthorUncertain: boolean
-  textSource: string | null
-  completeEdition: string | null
-  note: string | null
-  genre: string | null
-  language: string | null
+  familyName: string
+  givenName?: string
+  alternateNames?: string[]
+  sameAs?: string[]
 }
 
-export interface EntriesFile {
-  '@context': string
-  items: CatalogueEntry[]
-}
-
-// Ein Druck, identifiziert ueber das Sigel aus dem Druckeverzeichnis (etwa
-// "1555-1", Jahr und laufende Nummer, bei mehrbaendigen Drucken mit Band wie
-// "1575-3/I"). Die Eintraege verweisen per firstPrint auf das Sigel, die Werke
-// per printAppearances auf die @id.
-export interface Print {
+export interface RawInstitution {
   '@id': string
-  '@type': 'Print'
-  siglum: string
-  year: number | null
-  // Band bei mehrbaendigen Drucken, roemisch
-  part: string | null
-  // Datierung im Register mit "ca."
-  dateApproximate: boolean
-  // Angaben aus dem Druckeverzeichnis (lassoDBData, entscheidungen.md,
-  // Abschnitt 26), diplomatisch uebernommen.
-  // Ueberschrift unter der Sigle, etwa "Nachdruck von 1555-1"
-  description: string | null
-  // Verweise auf andere Verzeichnisse. Neu ein Feld je Verzeichnis
-  // ({ RISM: "1581 a [L 924", Boetticher: "1581 e" }), im aelteren Datenstand
-  // eine Liste ("Boetticher 1555 a"); siehe printReferences in worksData.
-  // Werte mit undefined, weil TypeScript beim Import der JSON-Datei jedem
-  // Druck die Verzeichnisse der uebrigen als optionale Felder zuschreibt.
-  references: string[] | Record<string, string | undefined>
-  // Link auf RISM Online, ermittelt aus der RISM-Nummer im Verzeichnis
-  rism: string | null
-  // Titelblatt, Zeilenwechsel als "|", Zusaetze des Verzeichnisses in ⟨⟩
-  title: string | null
-  // Normalisierter Kurztitel, etwa "Il primo libro di madrigali a cinque voci"
-  shortTitle: string | null
-  // Stimmbuecher, durch ";" getrennt, oder "Chorbuch"
-  partbooks: string | null
-  // Werke mit Erstdruck in diesem Druck (Eintraege)
-  entryCount: number
+  name: string
+  siglum?: string
+  abbreviation?: string
+  place?: string
+  sameAs?: string[]
 }
 
-export interface PrintsFile {
-  '@context': string
-  items: Print[]
-}
-
-// Ein Zeugnis entspricht einem Lasso-Stueck in einer Handschrift, nicht dem
-// Werk selbst. Dieselbe Komposition kann in mehreren Handschriften
-// ueberliefert sein, und eine Handschrift kann mehrere Stuecke enthalten.
-export interface ManuscriptWitness {
+export interface RawPlace {
   '@id': string
-  '@type': 'ManuscriptWitness'
-  lv: string | null
-  lvBase: number | null
-  lvPart: number | null
-  lvAnh: number | null
-  title: string | null
-  voices: number | null
-  voicesRaw?: string
-  dating: string | null
-  rismSiglum: string | null
-  link: string | null
-  place: string | null
-  library: string | null
-  shelfmark: string | null
-  shelfmarkAlt: string | null
-  sourceType: string | null
-  provenance: string | null
-  sourceNote: string | null
-  literature: string | null
-  note: string | null
+  name: string
 }
 
-export interface ManuscriptsFile {
-  '@context': string
-  items: ManuscriptWitness[]
+export interface RawInstrumentation {
+  '@id': string
+  label: string
+  details?: { position: number; medium?: string; description: string; quantity?: number }[]
 }
 
-// Ein Textdichter. Schreibvarianten mit kuratierter GND-Zuordnung sind zu
-// einer Person mit festgelegter Anzeigeform zusammengefuehrt
+export interface RawBibliography {
+  '@id': string
+  abbreviation: string
+  titles?: RawTitle[]
+  editors?: string[]
+  publication?: RawPublication
+  series?: string
+  volumeNumber?: string
+}
+
+export interface RawCatalogue {
+  label: string
+  catalogueAbbreviation: string
+  composer?: string
+}
+
+export interface Collection<T> {
+  entries: T[]
+}
+
+// Anzeigemodelle
+
 export interface Person {
   '@id': string
-  '@type': 'Person'
   preferredName: string
-  // Abweichende Schreibweisen aus der Quelle, ohne preferredName
   variantNames: string[]
-  // GND und VIAF als vollstaendige Adresse, etwa https://d-nb.info/gnd/118593234
+  // Adressen der Normdaten, sofern im Datensatz verlinkt
   gnd: string | null
   viaf: string | null
 }
 
-export interface PersonsFile {
-  '@context': string
-  items: Person[]
+export interface Work {
+  '@id': string
+  slug: string
+  // Katalognummer in der Zitierform, ohne Kürzel, wenn es die Hauptzählung ist
+  number: string
+  title: string
+  variantTitles: string[]
+  isPartOf: string | null
+  hasPart: string[]
+  voiceCounts: number[]
+  textAuthors: string[]
+  uncertainTextAuthors: string[]
+  textSources: string[]
+  citations: Citation[]
+  genres: string[]
+  languages: string[]
+  // Weitere Expressions des Werks, also ausdrücklich gekennzeichnete Fassungen
+  versions: string[]
+  // Die Expression des Werks, Träger von Tonart, Incipit und so weiter
+  expression: Expression | null
+  status: string | null
+  sameAs: string[]
+  notes: RawNote[]
+}
+
+export interface Expression {
+  '@id': string
+  number: string
+  title: string
+  variantTitles: string[]
+  voiceCounts: number[]
+  textAuthors: string[]
+  uncertainTextAuthors: string[]
+  textSources: string[]
+  citations: Citation[]
+  languages: string[]
+  key: string
+  meter: string
+  tempo: string
+  duration: string
+  incipitText: string
+  incipitCode: string
+  dateCreated: string
+  placeCreated: string
+  notes: RawNote[]
+}
+
+export type SourceKind = 'print' | 'manuscript' | 'other'
+
+export interface SourceItem {
+  '@id': string
+  label: string
+  place: string | null
+  library: string | null
+  librarySiglum: string | null
+  shelfmark: string | null
+  formerShelfmark: string | null
+  links: string[]
+  notes: RawNote[]
+}
+
+export interface Source {
+  '@id': string
+  slug: string
+  // Kurzbezeichnung, bei Drucken die Sigle
+  siglum: string
+  kind: SourceKind
+  title: string
+  titlePage: string | null
+  year: number | null
+  // Datierung, wie sie angezeigt wird, etwa "ca. 1558"
+  dateLabel: string
+  place: string | null
+  publisher: string | null
+  description: string | null
+  sourceType: string | null
+  partbooks: string | null
+  literature: string[]
+  references: { catalogue: string; value: string }[]
+  rismLabel: string | null
+  rismUrl: string | null
+  links: string[]
+  items: SourceItem[]
+  notes: RawNote[]
+}
+
+// Ein Stück in einer Quelle mit den Angaben, die nur dort gelten
+export interface WorkInSource {
+  work: Work
+  // Gesetzt, wenn das Stück in dieser Quelle als eigene Fassung geführt ist
+  version: Expression | null
+  source: Source
+  position: string | null
+  part: string | null
+  titleInSource: string | null
+  voices: number | null
+  dating: string | null
+  note: string | null
+}
+
+export interface Volume {
+  '@id': string
+  slug: string
+  abbreviation: string
+  title: string | null
+  volumeNumber: string | null
+  editors: string[]
+  place: string | null
+  publisher: string | null
+  dateLabel: string
+}
+
+export interface Edition {
+  '@id': string
+  abbreviation: string
+  title: string | null
+  volumes: Volume[]
+}
+
+export interface VolumeContent {
+  id: string
+  work: Work
+  catalogNumber: string
+  title: string
+  section: string | null
+  // "Nr. 12" oder "S. 3"
+  location: string
+  note: string | null
+  isNestedPart: boolean
 }

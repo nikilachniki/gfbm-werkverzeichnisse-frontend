@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Navigate, Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
@@ -21,35 +21,29 @@ import Typography from '@mui/material/Typography'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { BackButton } from '../components/BackButton.tsx'
-import { EditionChips } from '../components/EditionChips.tsx'
+import { CitationChips } from '../components/CitationChips.tsx'
+import { ExternalChip } from '../components/ExternalChip.tsx'
 import { Fact } from '../components/Fact.tsx'
 import { Section } from '../components/Section.tsx'
-import { PrintChip } from '../components/PrintChip.tsx'
-import { PrintChips } from '../components/PrintChips.tsx'
-import { RismBadge } from '../components/PrintRism.tsx'
-import { PrintTitlePage, TextWithPrintLinks } from '../components/PrintText.tsx'
 import { SiglumChip } from '../components/SiglumChip.tsx'
-import { ExternalChip } from '../components/ExternalChip.tsx'
-import { WorkTitle } from '../components/WorkTitle.tsx'
+import { SourceChip } from '../components/SourceChip.tsx'
+import { RismBadge } from '../components/SourceRism.tsx'
+import { SourceTitlePage, TextWithSourceLinks } from '../components/SourceText.tsx'
 import { authorOrSourceLabel, AuthorOrSourceText } from '../helpers.tsx'
-import type { Expression, ManuscriptWitness, Work } from '../types.ts'
+import type { Expression, RawNote, Work, WorkInSource } from '../types.ts'
 import {
+  catalogue,
   findRelatedParts,
   findWholeWork,
-  findWorkByExpressionSlug,
   findWorkBySlug,
   formatCatalogNumber,
-  getExpressions,
-  getManuscripts,
-  getSortedEntries,
-  getWorkPrints,
+  getVersions,
+  getWorkSources,
   isBaseWork,
-  mainTitle,
-  printPath,
+  noteText,
+  sourcePath,
   textAuthorLabels,
-  workSlug,
-  type WorkInPrint,
-} from '../worksData.ts'
+} from '../catalogueData.ts'
 
 const URL_PATTERN = /(https?:\/\/[^\s<>"]+)/g
 
@@ -71,7 +65,6 @@ function Linkified({ text }: { text: string }) {
         // Satzzeichen am Ende gehören meist nicht zur URL
         const url = part.replace(/[.,;:!?)\]]+$/, '')
         const trailing = part.slice(url.length)
-        // Als Chip mit dem Host als Beschriftung; die volle Adresse im Tooltip
         return (
           <span key={i}>
             <ExternalChip label={hostname(url)} href={url} tooltip={url} sx={{ verticalAlign: 'middle' }} />
@@ -83,16 +76,10 @@ function Linkified({ text }: { text: string }) {
   )
 }
 
-function partLabel(work: Work): string {
-  if (work.lvPart) {
-    return `Teil ${work.lvPart}`
-  }
-  return 'Basiswerk'
-}
+const numberHeader = catalogue.catalogueAbbreviation
 
-// focusId: der Teil, ueber den man aus der Werktabelle hierher gekommen ist.
-// Teile haben keine eigene Detailseite, deshalb wird er hier markiert und in
-// den sichtbaren Bereich gescrollt.
+// focusId: der Teil, ueber den man aus der Werktabelle hierher gekommen ist. Teile
+// haben keine eigene Detailseite, deshalb wird er hier markiert.
 function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string }) {
   const focusRef = useRef<HTMLTableRowElement>(null)
   const authorOrSourceHeader = authorOrSourceLabel(
@@ -110,12 +97,12 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>LV</TableCell>
+            <TableCell>{numberHeader}</TableCell>
             <TableCell>Werktitel</TableCell>
             <TableCell>Stimmen</TableCell>
-            <TableCell>Drucke</TableCell>
+            <TableCell>Quellen</TableCell>
             <TableCell>{authorOrSourceHeader}</TableCell>
-            <TableCell>Gesamtausgabe</TableCell>
+            <TableCell>Ausgaben</TableCell>
             {hasLanguages && <TableCell>Sprache</TableCell>}
           </TableRow>
         </TableHead>
@@ -126,19 +113,21 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
               selected={part['@id'] === focusId}
               ref={part['@id'] === focusId ? focusRef : undefined}
             >
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>{part.lv}</TableCell>
-              <TableCell>
-                <WorkTitle basis={part.preferredTitleBasis}>{mainTitle(part)}</WorkTitle>
-              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{part.number}</TableCell>
+              <TableCell>{part.title}</TableCell>
               <TableCell>{part.voiceCounts.join(', ')}</TableCell>
               <TableCell>
-                <PrintChips sigla={part.prints} />
+                <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
+                  {Array.from(new Set(getWorkSources(part).map(({ source }) => source.siglum))).map((siglum) => (
+                    <SourceChip key={siglum} siglum={siglum} maxWidth={160} />
+                  ))}
+                </Stack>
               </TableCell>
               <TableCell>
                 <AuthorOrSourceText authors={textAuthorLabels(part)} sources={part.textSources} />
               </TableCell>
               <TableCell>
-                <EditionChips item={part} />
+                <CitationChips item={part} />
               </TableCell>
               {hasLanguages && <TableCell>{part.languages.join(', ')}</TableCell>}
             </TableRow>
@@ -149,49 +138,43 @@ function RelatedPartsTable({ parts, focusId }: { parts: Work[]; focusId?: string
   )
 }
 
-// Die Fassungen (Expressions) eines Werks. "Teil" ist die roemische Ziffer
-// aus der Quelle und bezeichnet den Teil des Werks, den die Fassung bringt.
-function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
+// Die ausdruecklich gekennzeichneten Fassungen eines Werks
+function VersionsTable({ versions }: { versions: Expression[] }) {
   const authorOrSourceHeader = authorOrSourceLabel(
-    expressions.some((expression) => expression.textAuthors.length > 0),
-    expressions.some((expression) => expression.textSources.length > 0),
+    versions.some((version) => version.textAuthors.length > 0),
+    versions.some((version) => version.textSources.length > 0),
   )
-  const hasLanguages = expressions.some((expression) => expression.languages.length > 0)
-
+  const hasLanguages = versions.some((version) => version.languages.length > 0)
   return (
     <TableContainer>
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Teil</TableCell>
-            <TableCell>LV</TableCell>
-            <TableCell>Werktitel</TableCell>
+            <TableCell>{numberHeader}</TableCell>
+            <TableCell>Titel</TableCell>
             <TableCell>Stimmen</TableCell>
-            <TableCell>Druck</TableCell>
             <TableCell>{authorOrSourceHeader}</TableCell>
-            <TableCell>Gesamtausgabe</TableCell>
+            <TableCell>Ausgaben</TableCell>
             {hasLanguages && <TableCell>Sprache</TableCell>}
+            <TableCell>Anmerkung</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {expressions.map((expression) => (
-            <TableRow key={expression['@id']}>
-              <TableCell>{expression.pars}</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>{expression.lv}</TableCell>
+          {versions.map((version) => (
+            <TableRow key={version['@id']}>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{version.number}</TableCell>
+              <TableCell>{version.title}</TableCell>
+              <TableCell>{version.voiceCounts.join(', ')}</TableCell>
               <TableCell>
-                <WorkTitle basis={expression.preferredTitleBasis}>{mainTitle(expression)}</WorkTitle>
-              </TableCell>
-              <TableCell>{expression.voiceCounts.join(', ')}</TableCell>
-              <TableCell>
-                <PrintChips sigla={expression.prints} />
+                <AuthorOrSourceText authors={textAuthorLabels(version)} sources={version.textSources} />
               </TableCell>
               <TableCell>
-                <AuthorOrSourceText authors={textAuthorLabels(expression)} sources={expression.textSources} />
+                <CitationChips item={version} />
               </TableCell>
+              {hasLanguages && <TableCell>{version.languages.join(', ')}</TableCell>}
               <TableCell>
-                <EditionChips item={expression} />
+                {version.notes.map((note) => `${note.label ? `${note.label}: ` : ''}${noteText(note)}`).join('; ')}
               </TableCell>
-              {hasLanguages && <TableCell>{expression.languages.join(', ')}</TableCell>}
             </TableRow>
           ))}
         </TableBody>
@@ -200,38 +183,34 @@ function ExpressionsTable({ expressions }: { expressions: Expression[] }) {
   )
 }
 
-// Kurzangabe in der geschlossenen Zeile eines Drucks: Beschreibung aus dem
-// Druckeverzeichnis (etwa "Nachdruck von 1555-1", Sigel verlinkt) und Zusatz,
-// bei Erstdrucken der Titel in der Schreibung des Drucks.
-function WorkPrintSummary({ item }: { item: WorkInPrint }) {
-  const rest = [item.note ?? '', item.entries[0]?.title ?? ''].filter(Boolean)
-  return (
-    <Typography variant="body2">
-      {item.print?.description && <TextWithPrintLinks text={item.print.description} />}
-      {item.print?.description && rest.length > 0 && ' · '}
-      {rest.join(' · ')}
-    </Typography>
-  )
+// Was nur fuer dieses Stueck in dieser Quelle gilt
+function pieceSummary(item: WorkInSource): string {
+  return [
+    item.position !== null ? `Nr. ${item.position}${item.part ? `, Teil ${item.part}` : ''}` : item.part ? `Teil ${item.part}` : null,
+    item.version ? `Fassung ${item.version.number}` : null,
+    item.voices !== null ? `${item.voices} Stimmen` : null,
+    item.titleInSource,
+    item.dating,
+    item.note,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
-// Ein Druck eines Werks als Karte: in der Kopfzeile Sigel, RISM und
-// Kurzangabe, aufgeklappt nur das Titelblatt in voller Breite. Ein Klick auf
-// die Zeile fuehrt wie in den Tabellen zur Detailseite des Drucks, aufgeklappt
-// wird nur ueber den Pfeil. Drucke ohne Titelblatt haben keinen Pfeil.
-function PrintCard({ item }: { item: WorkInPrint }) {
+// Ein Druck eines Werks als Karte: Kopfzeile mit Sigle, RISM und den Angaben zum
+// Stueck, aufgeklappt das Titelblatt. Ein Klick auf die Zeile fuehrt zur Quelle,
+// aufgeklappt wird nur ueber den Pfeil.
+function PrintCard({ item }: { item: WorkInSource }) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
-  const title = item.print?.title
-  const open = item.print ? () => navigate(printPath(item.siglum)) : undefined
+  const { source } = item
   return (
     <Accordion variant="outlined" disableGutters expanded={expanded}>
-      {/* Als div, weil der Pfeil selbst ein Button ist und Buttons nicht
-          verschachtelt sein duerfen */}
       <AccordionSummary
         component="div"
-        onClick={open}
+        onClick={() => navigate(sourcePath(source))}
         expandIcon={
-          title ? (
+          source.titlePage ? (
             <IconButton
               size="small"
               aria-label={expanded ? 'Titelblatt zuklappen' : 'Titelblatt aufklappen'}
@@ -244,103 +223,81 @@ function PrintCard({ item }: { item: WorkInPrint }) {
             </IconButton>
           ) : undefined
         }
-        sx={{
-          cursor: open ? 'pointer' : 'default',
-          '&:hover': open ? { bgcolor: 'action.hover' } : undefined,
-        }}
+        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
-          <PrintChip siglum={item.siglum} firstPrint={item.entries.length > 0} sx={{ flexShrink: 0 }} />
-          {item.print && <RismBadge print={item.print} />}
-          <WorkPrintSummary item={item} />
+          <SourceChip siglum={source.siglum} sx={{ flexShrink: 0 }} />
+          <RismBadge source={source} />
+          <Typography variant="body2">
+            {source.description && <TextWithSourceLinks text={source.description} />}
+            {source.description && pieceSummary(item) && ' · '}
+            {pieceSummary(item)}
+          </Typography>
         </Stack>
       </AccordionSummary>
-      {title && (
+      {source.titlePage && (
         <AccordionDetails>
-          <PrintTitlePage title={title} />
+          <SourceTitlePage title={source.titlePage} />
         </AccordionDetails>
       )}
     </Accordion>
   )
 }
 
-function PrintsAccordion({ items }: { items: WorkInPrint[] }) {
+// Eine Handschrift als Karte: zuerst, wo sie liegt, aufgeklappt die Angaben zum
+// Stueck und zur Quelle.
+function ManuscriptCard({ item }: { item: WorkInSource }) {
+  const { source } = item
+  const physical = source.items[0]
+  const summary = [physical?.place, physical?.library, physical?.shelfmark].filter(Boolean).join(', ') || source.title
   return (
-    <Stack spacing={1}>
-      {items.map((item) => (
-        <PrintCard key={item.siglum} item={item} />
-      ))}
-    </Stack>
+    <Accordion variant="outlined" disableGutters>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+          {physical?.librarySiglum && (
+            <SiglumChip
+              siglum={physical.librarySiglum}
+              link={physical.links[0] ?? null}
+              maxWidth={96}
+              sx={{ flexShrink: 0 }}
+            />
+          )}
+          <Typography variant="body2">{summary}</Typography>
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Stack spacing={1.5}>
+          <Fact label="Ort" value={physical?.place ?? ''} />
+          <Fact label="Bibliothek" value={physical?.library ?? ''} />
+          <Fact label="Signatur" value={physical?.shelfmark ?? ''} />
+          <Fact label="Frühere Signatur" value={physical?.formerShelfmark ?? ''} />
+          <Fact label="Titel" value={item.titleInSource ?? ''} />
+          <Fact label="Stimmen" value={item.voices ?? ''} />
+          <Fact label="Datierung" value={item.dating ?? ''} />
+          <Fact label="Bemerkung" value={item.note ?? ''} />
+          <Fact label="Quellenart" value={source.sourceType ?? ''} />
+          {source.notes
+            .filter((note) => note.label !== 'Weitere Stücke')
+            .map((note) => (
+              <Fact key={note.html} label={note.label ?? 'Anmerkung'} value={noteText(note)} />
+            ))}
+          <Fact label="Literatur" value={source.literature.length > 0 ? <Linkified text={source.literature.join(' ')} /> : ''} />
+          <Button component={RouterLink} to={sourcePath(source)} size="small" sx={{ alignSelf: 'flex-start' }}>
+            Zur Quelle
+          </Button>
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
   )
 }
 
-// Kurzbeschreibung fuer die geschlossene Accordion-Zeile: Ort, Bibliothek
-// und Signatur identifizieren eine Handschrift eindeutiger als ihr Titel,
-// der oft mit dem des Werks uebereinstimmt.
-function manuscriptSummary(manuscript: ManuscriptWitness): string {
-  const parts = [manuscript.place, manuscript.library, manuscript.shelfmark].filter(
-    (part): part is string => Boolean(part),
-  )
-  if (parts.length > 0) {
-    return parts.join(', ')
-  }
-  return manuscript.title ?? `Handschrift ${Number(manuscript['@id'].split(':')[1])}`
-}
-
-// Link zum Online-Katalog (Spalte "Link", meist RISM, vereinzelt ein anderer
-// Bibliothekskatalog). Mit Sigel steht er schon als Chip in der Kopfzeile;
-// fehlt das Sigel (7 von 8939 Zeugnissen), hier, damit er nicht verloren geht.
-function catalogueValue(manuscript: ManuscriptWitness): ReactNode {
-  if (manuscript.rismSiglum || !manuscript.link) {
-    return ''
-  }
-  return <ExternalChip label="Online-Katalog" href={manuscript.link} />
-}
-
-// Je Handschrift ein ausklappbares Panel statt einer Tabellenzeile, im
-// gleichen Fact-Stil wie der Werkeintrag oben auf der Seite. Handschriften
-// tragen mehr uneinheitliche, teils lange Angaben (Quellenart, Bemerkung)
-// als die gedruckten Fassungen, dafuer aber weniger Datensaetze pro Werk;
-// das macht eine dichte Tabelle hier weniger passend als aufklappbare
-// Detailkarten.
-function ManuscriptsAccordion({ manuscripts }: { manuscripts: ManuscriptWitness[] }) {
+function NotesList({ notes }: { notes: RawNote[] }) {
   return (
-    <Stack spacing={1}>
-      {manuscripts.map((manuscript) => (
-        <Accordion key={manuscript['@id']} variant="outlined" disableGutters>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
-              {manuscript.rismSiglum && (
-                <SiglumChip
-                  siglum={manuscript.rismSiglum}
-                  link={manuscript.link}
-                  maxWidth={96}
-                  sx={{ flexShrink: 0 }}
-                />
-              )}
-              <Typography variant="body2">{manuscriptSummary(manuscript)}</Typography>
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={1.5}>
-              <Fact label="Katalog" value={catalogueValue(manuscript)} />
-              <Fact label="Ort" value={manuscript.place ?? ''} />
-              <Fact label="Bibliothek" value={manuscript.library ?? ''} />
-              <Fact label="Signatur" value={manuscript.shelfmark ?? ''} />
-              <Fact label="Weitere Signatur" value={manuscript.shelfmarkAlt ?? ''} />
-              <Fact label="Titel" value={manuscript.title ?? ''} />
-              <Fact label="Stimmen" value={manuscript.voices ?? ''} />
-              <Fact label="Datierung" value={manuscript.dating ?? ''} />
-              <Fact label="Provenienz" value={manuscript.provenance ?? ''} />
-              <Fact label="Quellenart" value={manuscript.sourceType ?? ''} />
-              <Fact label="Bemerkung" value={manuscript.note ?? ''} />
-              <Fact label="Bemerkung (Quelle)" value={manuscript.sourceNote ?? ''} />
-              <Fact label="Literatur" value={manuscript.literature ? <Linkified text={manuscript.literature} /> : ''} />
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+    <>
+      {notes.map((note) => (
+        <Fact key={note.html} label={note.label ?? 'Anmerkung'} labelWidth={130} value={noteText(note)} />
       ))}
-    </Stack>
+    </>
   )
 }
 
@@ -348,12 +305,6 @@ export function WorkDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const focusPart = (useLocation().state as { focusPart?: string } | null)?.focusPart
   const work = slug ? findWorkBySlug(slug) : undefined
-
-  // Alte Adresse einer Fassung (z.B. /werk/74-IV): zum zugehoerigen Werk.
-  const expressionWork = !work && slug ? findWorkByExpressionSlug(slug) : undefined
-  if (expressionWork) {
-    return <Navigate to={`/werk/${workSlug(expressionWork)}`} replace />
-  }
 
   if (!work) {
     return (
@@ -368,11 +319,11 @@ export function WorkDetailPage() {
 
   const baseWork = findWholeWork(work)
   const relatedParts = findRelatedParts(work)
-  const entries = getSortedEntries(work)
-  const firstEntry = entries[0]
-  const workPrints = getWorkPrints(work)
-  const manuscriptWitnesses = getManuscripts(work)
-  const expressions = getExpressions(work)
+  const contents = getWorkSources(work)
+  const prints = contents.filter(({ source }) => source.kind !== 'manuscript')
+  const manuscripts = contents.filter(({ source }) => source.kind === 'manuscript')
+  const versions = getVersions(work)
+  const expression = work.expression
 
   return (
     <Container maxWidth="md" sx={{ py: { xs: 2, sm: 3 }, overflowY: 'auto', flex: 1, minHeight: 0 }}>
@@ -380,13 +331,13 @@ export function WorkDetailPage() {
 
       {baseWork && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Dies ist {partLabel(work).toLowerCase()} von Werk{' '}
+          Dies ist ein Teil von Werk{' '}
           <Chip
-            label={`LV ${baseWork.lv}`}
+            label={formatCatalogNumber(baseWork.number)}
             size="small"
             clickable
             component={RouterLink}
-            to={`/werk/${workSlug(baseWork)}`}
+            to={`/werk/${baseWork.slug}`}
             sx={{ verticalAlign: 'middle' }}
           />
           .
@@ -395,15 +346,15 @@ export function WorkDetailPage() {
 
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-          <Chip label={formatCatalogNumber(work)} size="small" sx={{ fontWeight: 700 }} />
-          {!isBaseWork(work) && <Chip label={partLabel(work)} size="small" variant="outlined" />}
+          <Chip label={formatCatalogNumber(work.number)} size="small" sx={{ fontWeight: 700 }} />
+          {!isBaseWork(work) && <Chip label="Teil" size="small" variant="outlined" />}
+          {work.status && <Chip label={work.status} size="small" variant="outlined" />}
         </Stack>
         <Typography variant="h4" component="h2" sx={{ mb: 3 }}>
-          <WorkTitle basis={work.preferredTitleBasis}>{mainTitle(work)}</WorkTitle>
+          {work.title}
         </Typography>
 
-        {/* Wie auf der Druckseite: breit in zwei Spalten, schmal untereinander.
-            Die weiteren Titel koennen lang sein und laufen ueber beide Spalten. */}
+        {/* Breit in zwei Spalten, schmal untereinander. Leere Angaben fallen weg. */}
         <Box
           sx={{
             display: 'grid',
@@ -417,29 +368,31 @@ export function WorkDetailPage() {
               <Fact label="Weitere Titel" labelWidth={130} value={work.variantTitles.join(' / ')} />
             </Box>
           )}
+          <Fact label="Gattung" labelWidth={130} value={work.genres.join(', ')} />
           <Fact label="Sprache" labelWidth={130} value={work.languages.join(', ')} />
           <Fact label="Stimmen" labelWidth={130} value={work.voiceCounts.join(', ')} />
-          <Fact
-            label="Erstdruck"
-            labelWidth={130}
-            value={firstEntry?.firstPrint ? <PrintChips sigla={[firstEntry.firstPrint]} /> : ''}
-          />
+          <Fact label="Tonart" labelWidth={130} value={expression?.key ?? ''} />
+          <Fact label="Metrum" labelWidth={130} value={expression?.meter ?? ''} />
+          <Fact label="Tempo" labelWidth={130} value={expression?.tempo ?? ''} />
+          <Fact label="Dauer" labelWidth={130} value={expression?.duration ?? ''} />
+          <Fact label="Incipit" labelWidth={130} value={expression?.incipitText ?? ''} />
+          <Fact label="Entstehung" labelWidth={130} value={expression?.dateCreated ?? ''} />
+          <Fact label="Entstehungsort" labelWidth={130} value={expression?.placeCreated ?? ''} />
           <Fact
             label={authorOrSourceLabel(work.textAuthors.length > 0, work.textSources.length > 0)}
             labelWidth={130}
             value={<AuthorOrSourceText authors={textAuthorLabels(work)} sources={work.textSources} />}
           />
           <Fact
-            label="Gesamtausgabe"
+            label="Ausgaben"
             labelWidth={130}
-            value={work.editionAppearances.length > 0 ? <EditionChips item={work} /> : ''}
+            value={work.citations.length > 0 ? <CitationChips item={work} /> : ''}
           />
+          <NotesList notes={work.notes} />
         </Box>
 
         <Box sx={{ mt: 3 }}>
           {relatedParts.length > 0 && (
-            // Kommt man ueber einen Teil aus der Werktabelle, ist der Abschnitt
-            // offen, damit der markierte Teil sichtbar ist.
             <Section
               title={baseWork ? 'Weitere Teile dieses Werks' : 'Teile dieses Werks'}
               count={relatedParts.length}
@@ -451,32 +404,30 @@ export function WorkDetailPage() {
             </Section>
           )}
 
-          {workPrints.length > 0 && (
-            <Section title="Drucke" count={workPrints.length}>
-              {baseWork && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Das Druckregister führt Teile nicht einzeln. Hier steht nur der Erstdruck dieses
-                  Teils, alle Drucke des Gesamtwerks stehen beim Basiswerk.
-                </Typography>
-              )}
-              <PrintsAccordion items={workPrints} />
+          {prints.length > 0 && (
+            <Section title="Drucke" count={prints.length}>
+              <Stack spacing={1}>
+                {prints.map((item, index) => (
+                  <PrintCard key={`${item.source['@id']}|${index}`} item={item} />
+                ))}
+              </Stack>
             </Section>
           )}
 
-          {manuscriptWitnesses.length > 0 && (
-            <Section title="Handschriftliche Überlieferung" count={manuscriptWitnesses.length}>
-              <ManuscriptsAccordion manuscripts={manuscriptWitnesses} />
+          {manuscripts.length > 0 && (
+            <Section title="Handschriften" count={manuscripts.length}>
+              <Stack spacing={1}>
+                {manuscripts.map((item, index) => (
+                  <ManuscriptCard key={`${item.source['@id']}|${index}`} item={item} />
+                ))}
+              </Stack>
             </Section>
           )}
 
-          {expressions.length > 0 && (
-            <Section title="Fassungen" count={expressions.length}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Einzelne Teile dieses Werks in abweichender Gestalt, meist mit anderer Stimmenzahl in
-                einem anderen Druck.
-              </Typography>
+          {versions.length > 0 && (
+            <Section title="Fassungen" count={versions.length}>
               <Box sx={{ overflowX: 'auto' }}>
-                <ExpressionsTable expressions={expressions} />
+                <VersionsTable versions={versions} />
               </Box>
             </Section>
           )}

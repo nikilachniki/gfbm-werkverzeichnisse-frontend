@@ -1,24 +1,25 @@
-# lassoDB
+# Werkverzeichnis-Oberfläche
 
-Weboberfläche für das Werkverzeichnis von Orlando di Lasso. Dieses Repository
-enthält nur die Anwendung. Der eigentliche Datenbestand liegt getrennt in
-[lassoDBData](https://github.com/nikilachniki/lassoDBData), zusammen mit dem
-Begründungsprotokoll [docs/entscheidungen.md](https://github.com/nikilachniki/lassoDBData/blob/main/docs/entscheidungen.md)
-zu allen Technologieentscheidungen dieses Projekts.
+Prototyp einer Weboberfläche für musikalische Werkverzeichnisse, entstanden aus der
+Lasso-Werkdatenbank (Branch `main`). Sie zeigt die Daten der
+[Werkverzeichnis-Vorlage](https://github.com/nikilachniki/lassoDBData/tree/werkverzeichnis-vorlage):
+Werke, Quellen (Drucke und Handschriften) und Ausgaben. Name, Kürzel und alle Inhalte
+kommen aus den Daten; ein neues Verzeichnis braucht keine Änderung am Code.
 
-Technisch: Vite, React, TypeScript, MUI mit der DataGrid-Komponente. Reine
-statische Auslieferung ohne Server oder Datenbank, Auslieferung über GitHub
-Pages.
+Technisch: Vite, React, TypeScript, MUI mit der DataGrid-Komponente. Reine statische
+Auslieferung ohne Server oder Datenbank. **Noch ohne Eingabe:** Daten werden in der
+Vorlage gepflegt, die Oberfläche zeigt sie nur an.
 
 ## Wie die Daten hierherkommen
 
-Es gibt keine eigene Kopie der Daten in diesem Repository. Stattdessen holt
-`scripts/sync-data.mjs` bei jedem Start die erzeugten JSON-LD-Dateien aus
-lassoDBData und legt sie nach `src/data/`, von wo sie ins Bundle eingebunden
-werden. Der Ordner ist entsprechend in `.gitignore` eingetragen.
+`scripts/sync-data.mjs` kopiert bei jedem Start die JSON-LD-Dateien eines
+Verzeichnisses nach `src/data/`, von wo sie ins Bundle eingebunden werden. Der Ordner
+ist in `.gitignore` eingetragen. `src/catalogueData.ts` führt sie beim Laden in die
+Anzeigemodelle über und ergänzt die Gegenrichtung der Beziehungen.
 
-Lokal wird angenommen, dass lassoDBData als Geschwisterordner neben diesem
-Projekt liegt:
+Ohne weitere Angabe wird der Auszug `examples/lasso-schwierig` aus lassoDBData
+verwendet, das dafür als Geschwisterordner auf dem Branch `werkverzeichnis-vorlage`
+liegen muss:
 
 ```
 IdeaProjects/
@@ -26,7 +27,11 @@ IdeaProjects/
 └── lassoDBData/
 ```
 
-Liegt es woanders, zeigt `LASSO_DATA_DIR` auf den passenden `data/`-Ordner.
+Ein anderes Verzeichnis wählt `WV_DATA_DIR`, in PowerShell etwa:
+
+```powershell
+$env:WV_DATA_DIR = "..\lassoDBData\examples\beispiel"; npm run dev
+```
 
 ## Entwicklung
 
@@ -38,23 +43,13 @@ npm run dev
 ```
 
 `npm run dev` und `npm run build` synchronisieren die Daten automatisch vorab.
-Bei Bedarf lässt sich das auch einzeln ausführen:
-
-```bash
-npm run sync-data
-```
 
 ## Deployment
 
-Der Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-checkt bei jedem Push nach main zusätzlich lassoDBData aus, baut die
-Anwendung mit dessen aktuellem Datenstand und veröffentlicht sie auf GitHub
-Pages.
+Der Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) baut bei
+jedem Push nach `main` und veröffentlicht auf GitHub Pages. Solange die Vorlage nur ein
+Branch ist, läuft er von hier aus nicht. Vor einem Merge nach `main` ist zu entscheiden,
+welches Verzeichnis dort erscheinen soll, denn der Workflow ist auf den Auszug
+`examples/lasso-schwierig` eingestellt.
 
-Damit das greift, muss in den Repository-Einstellungen unter **Settings →
-Pages → Source** einmalig **GitHub Actions** ausgewählt werden, das lässt
-sich nicht per Push auslösen.
-
-In der frühen Phase wird gegen den `main`-Branch von lassoDBData gebaut, ohne
-Versionspinnung. Sobald sich das Datenschema stabilisiert hat, wird der
-Checkout auf ein festes Tag umgestellt.
+Der Pfad `/lassoDB/` steht in `vite.config.ts` und passt nur zu diesem Repository.

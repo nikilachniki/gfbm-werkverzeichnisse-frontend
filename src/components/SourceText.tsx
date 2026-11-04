@@ -1,20 +1,20 @@
 import { Fragment } from 'react'
 import Box from '@mui/material/Box'
-import { findPrintBySiglum, type PrintReference } from '../worksData.ts'
-import { PrintChip } from './PrintChip.tsx'
+import { findSourceBySiglum } from '../catalogueData.ts'
+import { SourceChip } from './SourceChip.tsx'
 
-// Anzeige der Angaben aus dem Druckeverzeichnis, siehe Print.
+// Anzeige von Quellenangaben, siehe Source.
 
 const SIGLUM_PATTERN = /(\d{4}-\d+(?:\/[IVX]+)?)/g
 
-// Text mit Drucksigeln, etwa "Nachdruck von 1557-2 (über 1559-1)": jedes
-// bekannte Sigel wird zum Chip, der zu seinem Druck fuehrt, wie ueberall sonst.
-export function TextWithPrintLinks({ text }: { text: string }) {
+// Text mit Sigeln, etwa "Nachdruck von 1557-2 (über 1559-1)": jedes
+// bekannte Sigel wird zum Chip, der zu seinem Druck fuehrt.
+export function TextWithSourceLinks({ text }: { text: string }) {
   return (
     <>
       {text.split(SIGLUM_PATTERN).map((part, index) =>
-        index % 2 === 1 && findPrintBySiglum(part) ? (
-          <PrintChip key={index} siglum={part} firstPrint={false} sx={{ verticalAlign: 'middle', mx: 0.25 }} />
+        index % 2 === 1 && findSourceBySiglum(part) ? (
+          <SourceChip key={index} siglum={part} sx={{ verticalAlign: 'middle', mx: 0.25 }} />
         ) : (
           <Fragment key={index}>{part}</Fragment>
         ),
@@ -42,7 +42,7 @@ function WithEditorialNotes({ text }: { text: string }) {
 }
 
 // Das Titelblatt mit seinen Zeilenwechseln ("|") als eigene Zeilen
-export function PrintTitle({ title }: { title: string }) {
+export function SourceTitle({ title }: { title: string }) {
   return (
     <Box component="span" sx={{ display: 'block', fontFamily: 'Georgia, "Times New Roman", serif' }}>
       {title.split(/\s*\|\s*/).map((line, index) => (
@@ -55,14 +55,12 @@ export function PrintTitle({ title }: { title: string }) {
 }
 
 // Verweise als Liste, je Verzeichnis eine Zeile
-export function PrintReferences({ references }: { references: PrintReference[] }) {
+export function SourceReferences({ references }: { references: { catalogue: string; value: string }[] }) {
   return (
     <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
       {references.map((reference) => (
         <Box component="li" key={`${reference.catalogue}|${reference.value}`} sx={{ typography: 'body2' }}>
-          {reference.catalogue && reference.catalogue !== 'sonstige'
-            ? `${reference.catalogue} ${reference.value}`
-            : reference.value}
+          {reference.catalogue !== 'sonstige' ? `${reference.catalogue} ${reference.value}` : reference.value}
         </Box>
       ))}
     </Box>
@@ -71,7 +69,7 @@ export function PrintReferences({ references }: { references: PrintReference[] }
 
 // Das Titelblatt als eigene Karte, zentriert und Zeile fuer Zeile wie im Druck.
 // Ohne eigene Ueberschrift, die traegt der umgebende Abschnitt.
-export function PrintTitlePage({ title }: { title: string }) {
+export function SourceTitlePage({ title }: { title: string }) {
   return (
     <Box
       sx={{
@@ -86,7 +84,7 @@ export function PrintTitlePage({ title }: { title: string }) {
         overflowWrap: 'anywhere',
       }}
     >
-      <PrintTitle title={title} />
+      <SourceTitle title={title} />
     </Box>
   )
 }

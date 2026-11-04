@@ -19,15 +19,13 @@ declare module '@mui/x-data-grid' {
   }
 }
 
-// Der JSON-Export liefert bewusst die rohen, ungekürzten Work-Objekte (statt der
-// für die Tabelle aufbereiteten Zeilen), damit der Export verlustfrei und mit den
-// Rohdaten aus lassoDBData zitierfähig bleibt.
+// Der JSON-Export liefert die ungekürzten Werke statt der Tabellenzeilen.
 function downloadWorksAsJson(works: Work[]) {
   const blob = new Blob([JSON.stringify(works, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'lasso-werke.json'
+  link.download = 'werke.json'
   link.click()
   URL.revokeObjectURL(url)
 }

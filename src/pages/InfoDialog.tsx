@@ -8,24 +8,15 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import { ExternalLink } from '../components/ExternalLink.tsx'
+import { catalogue, getPerson, works } from '../catalogueData.ts'
 
 interface InfoDialogProps {
   open: boolean
   onClose: () => void
 }
 
-function FootnoteRef({ n }: { n: number }) {
-  return (
-    <Box
-      component="sup"
-      sx={{ fontSize: '0.75em', fontWeight: 700, color: 'primary.main', ml: '1px' }}
-    >
-      {n}
-    </Box>
-  )
-}
-
 export function InfoDialog({ open, onClose }: InfoDialogProps) {
+  const composer = catalogue.composer ? getPerson(catalogue.composer)?.preferredName : undefined
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth scroll="paper">
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
@@ -38,51 +29,12 @@ export function InfoDialog({ open, onClose }: InfoDialogProps) {
         <Stack spacing={3}>
           <Box>
             <Typography variant="subtitle1" component="h2" sx={{ mb: 1 }}>
-              Die Datenbank
+              {catalogue.label}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Orlando di Lasso (1532–1594) gilt als einer der bedeutendsten Komponisten des 16.
-              Jahrhunderts. Sein Œuvre umfasst mehr als 1360 Werke, überliefert in über 470
-              zeitgenössischen Drucken aus den Jahren 1555 bis 1687 sowie in einer erheblich
-              größeren Zahl an Handschriften.
+            <Typography variant="body2" color="text.secondary">
+              {composer ? `Werke von ${composer}. ` : ''}
+              {works.length} Werke, zitiert nach {catalogue.catalogueAbbreviation}.
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Diese Datenbank führt die gedruckte Überlieferung nach der Zählung des
-              LV-Katalogs
-              <FootnoteRef n={1} /> mit der handschriftlichen Überlieferung der
-              Lasso-Handschriften-Datenbank
-              <FootnoteRef n={2} /> zusammen und macht beide gemeinsam durchsuch- und filterbar.
-            </Typography>
-            <Box
-              sx={{
-                pl: 1.5,
-                py: 0.5,
-                borderLeft: '3px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 0.75 }}>
-                <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                  [1]
-                </Box>{' '}
-                Horst Leuchtmann und Bernhold Schmid,{' '}
-                <Box component="span" sx={{ fontStyle: 'italic' }}>
-                  Orlando di Lasso: Seine Werke in zeitgenössischen Drucken 1555–1687
-                </Box>
-                . Supplement zur Ausgabe „Orlando di Lasso, Sämtliche Werke“, 3 Bde., Kassel u. a.
-                2001.
-              </Typography>
-              <Typography variant="caption" color="text.secondary" component="p">
-                <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                  [2]
-                </Box>{' '}
-                <ExternalLink href="https://lasso-handschriften.badw.de/">
-                  https://lasso-handschriften.badw.de/
-                </ExternalLink>
-                , bearb. und hrsg. von Tobias Apelt, Daniela von Aretin und Adelheid Schellmann
-                unter Mitarbeit von Alexander Heinzel und Bernhold Schmid.
-              </Typography>
-            </Box>
           </Box>
 
           <Divider />
@@ -92,39 +44,12 @@ export function InfoDialog({ open, onClose }: InfoDialogProps) {
               Das Digital Lab
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Die Datenbank entsteht im Digital Lab der Gesellschaft für Bayerische
-              Musikgeschichte e. V., einer Arbeitsgruppe junger Musikwissenschaftler*innen an
-              bayerischen Forschungseinrichtungen. Das Digital Lab wird von Dr. Moritz Kelber
-              geleitet und steht allen Interessierten zur Mitarbeit offen. Seit Anfang 2026
-              arbeitet ein Team aus vier Wissenschaftler*innen am Aufbau einer gemeinsamen
-              digitalen Infrastruktur für Werkverzeichnisse. Es entwickelt digitale Lösungen für
-              die Erschließung musikwissenschaftlicher Werkverzeichnisse: bestehende Verzeichnisse
-              werden zusammengeführt, neue erarbeitet und die Daten nach den FAIR-Prinzipien frei
-              nachnutzbar bereitgestellt. Neben Orlando di Lasso widmet sich das Digital Lab den
-              Werkverzeichnissen von Hans Leo Hassler, Luise Adolpha Le Beau und Emanuel Moór, in
-              Zusammenarbeit mit dem Centre for Digital Music Documentation an der Akademie der
-              Wissenschaften und der Literatur Mainz sowie der Ludwig-Maximilians-Universität
-              München.
+              Diese Anwendung entsteht im Digital Lab der Gesellschaft für Bayerische Musikgeschichte e. V. als
+              gemeinsame digitale Infrastruktur für Werkverzeichnisse.
             </Typography>
             <ExternalLink href="https://gfbm-online.de/laufende-editionsprojekte/digitallab/">
               Mehr zum Digital Lab
             </ExternalLink>
-          </Box>
-
-          <Divider />
-
-          <Box>
-            <Typography variant="subtitle1" component="h2" sx={{ mb: 1 }}>
-              Daten &amp; Quellcode
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Der vollständige Datenbestand samt Herkunftsnachweis steht im
-              Repository{' '}
-              <ExternalLink href="https://github.com/nikilachniki/lassoDBData">lassoDBData</ExternalLink>{' '}
-              bereit. Die Anwendung selbst ist quelloffen unter MIT-Lizenz in{' '}
-              <ExternalLink href="https://github.com/nikilachniki/lassoDB">lassoDB</ExternalLink>
-              .
-            </Typography>
           </Box>
         </Stack>
       </DialogContent>

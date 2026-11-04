@@ -6,49 +6,27 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { Section } from '../components/Section.tsx'
-import { WorkTitle } from '../components/WorkTitle.tsx'
-import type { Edition, Volume, VolumePart } from '../types.ts'
-import {
-  editions,
-  getVolumeContents,
-  volumeAncestorIds,
-  volumeContentId,
-  workSlug,
-  type VolumeContent,
-} from '../worksData.ts'
+import type { Edition, Volume, VolumeContent } from '../types.ts'
+import { editions, getVolumeContents, volumeContentId, workLink } from '../catalogueData.ts'
 
 // Bleibt beim Wechsel zum Werk und zurueck erhalten: dieselben Baende sind offen,
 // die Seite steht an derselben Stelle.
 const view = {
-  // Offene Ausgaben, Baende und Teilbaende
   expandedVolumes: new Set<string>(),
   scrollTop: 0,
-  // Der Aufruf, dessen Band schon angesprungen wurde. Beim Zurueckkommen von
-  // einem Werk gilt wieder die gemerkte Stelle statt erneut der Band.
+  // Der Aufruf, dessen Band schon angesprungen wurde. Beim Zurueckkommen von einem
+  // Werk gilt wieder die gemerkte Stelle statt erneut der Band.
   arrivedAt: null as string | null,
 }
 
 function volumeHeading(volume: Volume): string {
-  const details = [volume.title, volume.year].filter((detail) => detail !== null)
-  return details.length > 0 ? `Band ${volume.volume}: ${details.join(', ')}` : `Band ${volume.volume}`
+  const details = [volume.title, volume.dateLabel].filter(Boolean)
+  return details.length > 0 ? `${volume.abbreviation}: ${details.join(', ')}` : volume.abbreviation
 }
-
-// Die Werke, die ein Band ohne Teilbandangabe fuehrt, stehen bei einem Band mit
-// Teilbaenden in einem eigenen Abschnitt neben diesen.
-const withoutPartId = (volumeId: string) => `${volumeId}/ohne-teilband`
 
 // Ohne eingerueckte Teile, die gehoeren zu ihrem Gesamtwerk.
-function ownWorkCount(volume: Volume | VolumePart): number {
-  return getVolumeContents(volume).filter((content) => !content.isNestedPart).length
-}
-
-function volumeWorkCount(volume: Volume): number {
-  return volume.parts.reduce((sum, part) => sum + ownWorkCount(part), ownWorkCount(volume))
-}
-
-function editionWorkCount(edition: Edition): number {
-  return edition.volumes.reduce((sum, volume) => sum + volumeWorkCount(volume), 0)
-}
+const ownWorkCount = (volume: Volume) => getVolumeContents(volume).filter((content) => !content.isNestedPart).length
+const editionWorkCount = (edition: Edition) => edition.volumes.reduce((sum, volume) => sum + ownWorkCount(volume), 0)
 
 function VolumeContentRow({
   content,
@@ -59,15 +37,12 @@ function VolumeContentRow({
   showLocation: boolean
   focused: boolean
 }) {
-  const { work } = content
-  // Teile haben keine eigene Detailseite, siehe WorksPage.handleRowClick.
-  const link = work.isPartOf
-    ? { to: `/werk/${workSlug({ '@id': work.isPartOf })}`, state: { focusPart: work['@id'] } }
-    : { to: `/werk/${workSlug(work)}` }
+  const link = workLink(content.work)
   return (
     <Box
       component={RouterLink}
-      {...link}
+      to={link.to}
+      state={link.state}
       data-focus-row={focused || undefined}
       sx={{
         display: 'flex',
@@ -84,11 +59,11 @@ function VolumeContentRow({
       <Typography variant="body2" color="text.secondary" sx={{ width: 64, flexShrink: 0 }}>
         {showLocation && content.location}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ width: 96, flexShrink: 0 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ width: 110, flexShrink: 0 }}>
         {content.catalogNumber}
       </Typography>
       <Typography variant="body2" sx={{ minWidth: 0, pl: content.isNestedPart ? 2 : 0 }}>
-        <WorkTitle basis={content.titleBasis}>{content.title}</WorkTitle>
+        {content.title}
         {content.note && (
           <Box component="span" sx={{ color: 'text.secondary' }}>
             {' '}
@@ -100,29 +75,20 @@ function VolumeContentRow({
   )
 }
 
-// Die Werke eines Bandes in der Reihenfolge der Ausgabe. Teile teilen sich die
-// Nummer ihres Gesamtwerks, die Nummer steht deshalb nur in der ersten Zeile.
-function VolumeContents({
-  contents,
-  focusId,
-  nested,
-}: {
-  contents: VolumeContent[]
-  focusId?: string
-  nested: boolean
-}) {
+// Die Werke eines Bandes in der Reihenfolge der Ausgabe, nach Abschnitten getrennt.
+// Teile teilen sich die Nummer ihres Gesamtwerks, sie steht nur in der ersten Zeile.
+function VolumeContents({ contents, focusId }: { contents: VolumeContent[]; focusId?: string }) {
   return (
     <>
       {contents.map((content, index) => {
         const previous = contents[index - 1]
-        const startsAppendix = content.appendix !== null && content.appendix !== previous?.appendix
-        const showLocation =
-          startsAppendix || content.location !== previous?.location || content.appendix !== previous?.appendix
+        const startsSection = content.section !== null && content.section !== previous?.section
+        const showLocation = startsSection || content.location !== previous?.location
         return (
-          <Box key={content.id}>
-            {startsAppendix && (
-              <Typography variant="subtitle2" component={nested ? 'h5' : 'h4'} sx={{ mt: 2, mb: 0.5, px: 1 }}>
-                {content.appendix}
+          <Box key={`${content.id}|${index}`}>
+            {startsSection && (
+              <Typography variant="subtitle2" component="h4" sx={{ mt: 2, mb: 0.5, px: 1 }}>
+                {content.section}
               </Typography>
             )}
             <VolumeContentRow content={content} showLocation={showLocation} focused={content.id === focusId} />
@@ -133,15 +99,13 @@ function VolumeContents({
   )
 }
 
-// Die bibliographischen Angaben eines Bandes. Noch nicht erfasste Angaben stehen
-// als Platzhalter da, siehe entscheidungen.md, Abschnitt 43.
 function VolumeDetails({ volume }: { volume: Volume }) {
   const fields = [
     ['Titel', volume.title],
     ['Hrsg.', volume.editors.join(', ')],
     ['Ort', volume.place],
     ['Verlag', volume.publisher],
-    ['Jahr', volume.year],
+    ['Jahr', volume.dateLabel],
   ] as const
   return (
     <Box component="dl" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 3, rowGap: 0.5, m: 0, mb: 1.5, px: 1 }}>
@@ -159,9 +123,7 @@ function VolumeDetails({ volume }: { volume: Volume }) {
   )
 }
 
-// Ein Abschnitt, der sich merkt, ob er offen ist. Der Zustand wird beim Einbau
-// gelesen, weil Section defaultExpanded nur beim ersten Rendern liest und
-// Teilbaende beim Zuklappen ihres Bandes ausgebaut werden.
+// Ein Abschnitt, der sich merkt, ob er offen ist.
 function RememberedSection({
   id,
   title,
@@ -195,7 +157,7 @@ function RememberedSection({
   )
 }
 
-// Das Ziel eines Aufrufs: der Band oder Teilband und das markierte Werk darin
+// Das Ziel eines Aufrufs: der Band und das markierte Werk darin
 interface Arrival {
   target: string | null
   focusId?: string
@@ -203,44 +165,11 @@ interface Arrival {
 
 function VolumeSection({ volume, arrival }: { volume: Volume; arrival: Arrival }) {
   const isTarget = volume['@id'] === arrival.target
-  const contents = getVolumeContents(volume)
-  const focusId = isTarget ? arrival.focusId : undefined
   return (
     <Box data-focus-volume={isTarget || undefined}>
-      <RememberedSection id={volume['@id']} title={volumeHeading(volume)} count={volumeWorkCount(volume)} level={3}>
+      <RememberedSection id={volume['@id']} title={volumeHeading(volume)} count={ownWorkCount(volume)} level={3}>
         <VolumeDetails volume={volume} />
-        {volume.parts.length === 0 ? (
-          <VolumeContents contents={contents} focusId={focusId} nested={false} />
-        ) : (
-          <Box sx={{ pl: 2 }}>
-            {contents.length > 0 && (
-              <RememberedSection
-                id={withoutPartId(volume['@id'])}
-                title="Ohne Teilbandangabe"
-                count={ownWorkCount(volume)}
-                level={4}
-              >
-                <VolumeContents contents={contents} focusId={focusId} nested />
-              </RememberedSection>
-            )}
-            {volume.parts.map((part) => (
-              <Box key={part['@id']} data-focus-volume={part['@id'] === arrival.target || undefined}>
-                <RememberedSection
-                  id={part['@id']}
-                  title={`Teilband ${part.volume.split(',')[1]}`}
-                  count={ownWorkCount(part)}
-                  level={4}
-                >
-                  <VolumeContents
-                    contents={getVolumeContents(part)}
-                    focusId={part['@id'] === arrival.target ? arrival.focusId : undefined}
-                    nested
-                  />
-                </RememberedSection>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <VolumeContents contents={getVolumeContents(volume)} focusId={isTarget ? arrival.focusId : undefined} />
       </RememberedSection>
     </Box>
   )
@@ -251,14 +180,17 @@ export function EditionsPage() {
   const { volume: volumeSlug } = useParams<{ volume: string }>()
   const location = useLocation()
 
-  // Einmal beim Aufruf festgelegt, weil ein Wechsel der Adresse die Seite nicht
-  // neu aufbaut. Vor dem Rendern der Abschnitte, die view.expandedVolumes lesen.
+  // Einmal beim Aufruf festgelegt, weil ein Wechsel der Adresse die Seite nicht neu
+  // aufbaut. Vor dem Rendern der Abschnitte, die view.expandedVolumes lesen.
   const [initial] = useState(() => {
-    const target = volumeSlug && location.key !== view.arrivedAt ? `edition:${volumeSlug}` : null
+    const target = volumeSlug && location.key !== view.arrivedAt ? `bibliography:${volumeSlug}` : null
     const focus = (location.state as { focus?: string } | null)?.focus
     if (target) {
-      for (const id of [...volumeAncestorIds(target), target, withoutPartId(target)]) {
-        view.expandedVolumes.add(id)
+      const edition = editions.find((candidate) => candidate.volumes.some((volume) => volume['@id'] === target))
+      for (const id of [edition?.['@id'], target]) {
+        if (id) {
+          view.expandedVolumes.add(id)
+        }
       }
     }
     return {
@@ -300,7 +232,7 @@ export function EditionsPage() {
             <Paper key={edition['@id']} variant="outlined" sx={{ px: { xs: 2, sm: 3 } }}>
               <RememberedSection
                 id={edition['@id']}
-                title={`${edition.siglum}: ${edition.title}`}
+                title={[edition.abbreviation, edition.title].filter(Boolean).join(': ')}
                 count={editionWorkCount(edition)}
                 level={2}
               >

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { createFilterOptions } from '@mui/material/Autocomplete'
-import { getPerson, textAuthorSearchNames } from '../worksData'
+import { catalogue, getPerson, textAuthorSearchNames } from '../catalogueData'
 import { FilterBar, type FilterField } from './FilterBar'
 import { multiField, textField, yearRangeField } from './filterFields'
 import { defaultWorksFilters, type WorksFilters } from './filterWorks'
@@ -31,7 +31,7 @@ export function WorksSearchBar({
 }: WorksSearchBarProps) {
   const fields = useMemo<FilterField<WorksFilters>[]>(
     () => [
-      textField('lv', 'LV-Nummer', 'z. B. 100 oder 100-2', 150),
+      textField('number', `${catalogue.catalogueAbbreviation}-Nummer`, 'z. B. 100 oder 100-2', 150),
       textField('title', 'Titel', 'z. B. Passio', 200),
       multiField('textAuthors', 'Textdichter', authorOptions, {
         getOptionLabel: authorLabel,
@@ -40,15 +40,13 @@ export function WorksSearchBar({
       }),
       textField('textSources', 'Textprovenienz', 'z. B. Ps 6', 180),
       multiField('voiceCounts', 'Stimmen', voiceCountOptions, { getOptionLabel: (option) => String(option) }),
-      textField('prints', 'Drucke', 'z. B. 1555-1'),
-      yearRangeField('yearFrom', 'yearTo', 'Druckjahr'),
-      textField('editions', 'Gesamtausgabe', 'z. B. GA XIX', 180),
-      // Die Sprache ist in den Daten noch nicht durchgehend erfasst;
-      // ein Filter ohne einen einzigen Wert wuerde nur eine leere Auswahl zeigen.
+      textField('sources', 'Quellen', 'Sigle oder Bibliothek'),
+      yearRangeField('yearFrom', 'yearTo', 'Jahr der Quelle'),
+      textField('editions', 'Ausgabe', 'Band oder Nummer', 180),
+      // Ein Filter ohne einen einzigen Wert wuerde nur eine leere Auswahl zeigen.
       ...(languageOptions.length > 0
         ? [multiField<WorksFilters, string>('languages', 'Sprache', languageOptions)]
         : []),
-      textField('manuscripts', 'Handschrift (RISM-Sigel)', 'z. B. D-Mbs', 180),
     ],
     [authorOptions, voiceCountOptions, languageOptions],
   )
@@ -59,7 +57,7 @@ export function WorksSearchBar({
       onFiltersChange={onFiltersChange}
       defaultFilters={defaultWorksFilters}
       fields={fields}
-      placeholder="Werke durchsuchen – Titel, LV-Nummer, Textdichter, Drucke, Gesamtausgabe …"
+      placeholder={`Werke durchsuchen – Titel, ${catalogue.catalogueAbbreviation}-Nummer, Textdichter, Quellen, Ausgaben …`}
     />
   )
 }
