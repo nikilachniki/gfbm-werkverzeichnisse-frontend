@@ -35,18 +35,16 @@ import {
 
 // Die Stuecke einer Quelle in ihrer Reihenfolge. Titel und Stimmenzahl der Quelle
 // stehen, wo sie abweichen, beim Stueck. Ein Klick fuehrt zum Werk.
-// Stuecke ohne Werk stehen danach und fuehren nirgendwohin.
-function ContentsTable({ contents, unassigned }: { contents: WorkInSource[]; unassigned: UnassignedPiece[] }) {
+function ContentsTable({ contents }: { contents: WorkInSource[] }) {
   const navigate = useNavigate()
   const works = contents.map(({ work }) => work)
   const authorOrSourceHeader = authorOrSourceLabel(
     works.some((work) => work.textAuthors.length > 0),
     works.some((work) => work.textSources.length > 0),
   )
-  const pieces = [...contents, ...unassigned]
-  const hasPositions = pieces.some((piece) => piece.position || piece.part)
-  const hasDatings = pieces.some((piece) => piece.dating)
-  const hasNotes = pieces.some((piece) => piece.note)
+  const hasPositions = contents.some((content) => content.position || content.part)
+  const hasDatings = contents.some((content) => content.dating)
+  const hasNotes = contents.some((content) => content.note)
   const hasLanguages = works.some((work) => work.languages.length > 0)
 
   return (
@@ -112,24 +110,41 @@ function ContentsTable({ contents, unassigned }: { contents: WorkInSource[]; una
               </TableRow>
             )
           })}
-          {unassigned.map((piece, index) => (
-            <TableRow key={`ohne-werk|${index}`}>
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
+// Stuecke, die keinem Werk zugeordnet sind. Sie haben keine Werknummer und keinen
+// Komponisten und fuehren deshalb nirgendwohin.
+function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
+  const hasPositions = pieces.some((piece) => piece.position || piece.part)
+  const hasVoices = pieces.some((piece) => piece.voices !== null)
+  const hasDatings = pieces.some((piece) => piece.dating)
+  const hasNotes = pieces.some((piece) => piece.note)
+  return (
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            {hasPositions && <TableCell>Nr.</TableCell>}
+            <TableCell>Titel in der Quelle</TableCell>
+            {hasVoices && <TableCell>Stimmen</TableCell>}
+            {hasDatings && <TableCell>Datierung</TableCell>}
+            {hasNotes && <TableCell>Bemerkung</TableCell>}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {pieces.map((piece, index) => (
+            <TableRow key={index}>
               {hasPositions && (
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   {[piece.position, piece.part ? `Teil ${piece.part}` : null].filter(Boolean).join(', ')}
                 </TableCell>
               )}
-              <TableCell />
-              <TableCell>
-                {piece.title}
-                <Typography variant="body2" color="text.secondary">
-                  Keinem Werk zugeordnet
-                </Typography>
-              </TableCell>
-              <TableCell>{piece.voices}</TableCell>
-              <TableCell />
-              <TableCell />
-              {hasLanguages && <TableCell />}
+              <TableCell>{piece.title}</TableCell>
+              {hasVoices && <TableCell>{piece.voices}</TableCell>}
               {hasDatings && <TableCell>{piece.dating}</TableCell>}
               {hasNotes && <TableCell>{piece.note}</TableCell>}
             </TableRow>
@@ -137,6 +152,16 @@ function ContentsTable({ contents, unassigned }: { contents: WorkInSource[]; una
         </TableBody>
       </Table>
     </TableContainer>
+  )
+}
+
+function ItemLinks({ links }: { links: string[] }) {
+  return (
+    <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
+      {links.map((link) => (
+        <ExternalChip key={link} label="Online-Katalog" href={link} tooltip={link} />
+      ))}
+    </Stack>
   )
 }
 
@@ -160,6 +185,9 @@ export function SourceDetailPage() {
   const hasRism = Boolean(source.rismLabel || source.rismUrl)
   // Je Werk einmal, auch wenn es zusaetzlich als Fassung im selben Druck steht
   const earliestCount = new Set(contents.filter((content) => content.isEarliestPrint).map(({ work }) => work['@id'])).size
+  // Eine Handschrift ist ihr einziges Exemplar: dessen Angaben stehen direkt bei ihr.
+  const manuscriptItem = source.kind === 'manuscript' ? source.items[0] : undefined
+  const separateItems = manuscriptItem ? source.items.slice(1) : source.items
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3 }, overflowY: 'auto', flex: 1, minHeight: 0 }}>
@@ -194,6 +222,23 @@ export function SourceDetailPage() {
             gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' },
           }}
         >
+          {manuscriptItem && (
+            <>
+              <Fact label="Ort" labelWidth={120} value={manuscriptItem.place ?? ''} />
+              <Fact
+                label="Bibliothek"
+                labelWidth={120}
+                value={[manuscriptItem.librarySiglum, manuscriptItem.library].filter(Boolean).join(', ')}
+              />
+              <Fact label="Signatur" labelWidth={120} value={manuscriptItem.shelfmark ?? ''} />
+              <Fact label="Frühere Signatur" labelWidth={120} value={manuscriptItem.formerShelfmark ?? ''} />
+              <Fact
+                label="Katalog"
+                labelWidth={120}
+                value={manuscriptItem.links.length > 0 ? <ItemLinks links={manuscriptItem.links} /> : ''}
+              />
+            </>
+          )}
           <Fact label="Datierung" labelWidth={120} value={source.dateLabel} />
           <Fact label="Ort" labelWidth={120} value={source.place ?? ''} />
           <Fact label="Verlag" labelWidth={120} value={source.publisher ?? ''} />
@@ -202,7 +247,6 @@ export function SourceDetailPage() {
             labelWidth={120}
             value={earliestCount > 0 ? `${contents.length}, davon ${earliestCount} hier zuerst belegt` : contents.length}
           />
-          <Fact label="Ohne Werk" labelWidth={120} value={unassigned.length > 0 ? unassigned.length : ''} />
           <Fact label="Quellenart" labelWidth={120} value={source.sourceType ?? ''} />
           <Fact label="Stimmbücher" labelWidth={120} value={source.partbooks ?? ''} />
           <Fact label="RISM" labelWidth={120} value={hasRism ? <SourceRism source={source} /> : ''} />
@@ -221,10 +265,10 @@ export function SourceDetailPage() {
           </Section>
         )}
 
-        {source.items.length > 0 && (
-          <Section title="Exemplare" count={source.items.length} defaultExpanded={!source.titlePage}>
+        {separateItems.length > 0 && (
+          <Section title="Exemplare" count={separateItems.length}>
             <Stack spacing={2}>
-              {source.items.map((item) => (
+              {separateItems.map((item) => (
                 <Stack key={item['@id']} spacing={1}>
                   <Fact label="Ort" labelWidth={120} value={item.place ?? ''} />
                   <Fact
@@ -237,17 +281,7 @@ export function SourceDetailPage() {
                   <Fact
                     label="Katalog"
                     labelWidth={120}
-                    value={
-                      item.links.length > 0 ? (
-                        <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
-                          {item.links.map((link) => (
-                            <ExternalChip key={link} label="Online-Katalog" href={link} tooltip={link} />
-                          ))}
-                        </Stack>
-                      ) : (
-                        ''
-                      )
-                    }
+                    value={item.links.length > 0 ? <ItemLinks links={item.links} /> : ''}
                   />
                 </Stack>
               ))}
@@ -255,11 +289,22 @@ export function SourceDetailPage() {
           </Section>
         )}
 
-        <Section title="Enthaltene Werke" count={contents.length + unassigned.length}>
-          <Box sx={{ overflowX: 'auto' }}>
-            <ContentsTable contents={contents} unassigned={unassigned} />
-          </Box>
-        </Section>
+        {contents.length > 0 && (
+          // Ohne Titelblatt ist das die Hauptangabe der Quelle und deshalb offen.
+          <Section title="Enthaltene Werke" count={contents.length} defaultExpanded={!source.titlePage}>
+            <Box sx={{ overflowX: 'auto' }}>
+              <ContentsTable contents={contents} />
+            </Box>
+          </Section>
+        )}
+
+        {unassigned.length > 0 && (
+          <Section title="Stücke ohne Werkzuordnung" count={unassigned.length}>
+            <Box sx={{ overflowX: 'auto' }}>
+              <UnassignedTable pieces={unassigned} />
+            </Box>
+          </Section>
+        )}
 
         {source.references.length > 0 && (
           <Section title="Weitere Verweise" count={source.references.length}>
