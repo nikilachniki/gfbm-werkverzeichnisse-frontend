@@ -329,6 +329,7 @@ for (const raw of rawManifestations) {
       work,
       version: content.embodies === work.expression?.['@id'] ? null : (expressions.get(content.embodies) ?? null),
       source,
+      isEarliestPrint: false,
       position: content.position ?? null,
       part: content.part ?? null,
       titleInSource: content.titleInSource ?? null,
@@ -357,6 +358,31 @@ for (const list of contentsBySource.values()) {
 }
 for (const list of contentsByWork.values()) {
   list.sort((a, b) => compareNatural(a.source.siglum, b.source.siglum))
+}
+
+// Sigeln wie "1555-2" zaehlen die Drucke eines Jahres durch.
+const YEAR_NUMBER_SIGLUM = /^\d{4}-\d+/
+
+// Der frueheste Druck eines Werks ergibt sich aus dem Datum und braucht kein eigenes
+// Feld. Innerhalb eines Jahres entscheidet die laufende Nummer der Sigle; fehlt sie,
+// bleiben alle Drucke des Jahres markiert, statt einen zu raten. Siehe
+// lassoDBData/docs/entscheidungen.md, Abschnitt 6.
+function markEarliestPrints(list: WorkInSource[]): void {
+  const dated = list.filter(({ source }) => source.kind === 'print' && source.year !== null)
+  if (dated.length === 0) {
+    return
+  }
+  const year = Math.min(...dated.map(({ source }) => source.year ?? Infinity))
+  const candidates = dated.filter(({ source }) => source.year === year)
+  const ordered = candidates.every(({ source }) => YEAR_NUMBER_SIGLUM.test(source.siglum))
+  const first = ordered ? candidates.map(({ source }) => source.siglum).sort(compareNatural)[0] : null
+  for (const item of candidates) {
+    item.isEarliestPrint = first === null || item.source.siglum === first
+  }
+}
+
+for (const list of contentsByWork.values()) {
+  markEarliestPrints(list)
 }
 
 export function getSourceContents(source: Pick<Source, '@id'>): WorkInSource[] {

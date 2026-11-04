@@ -11,6 +11,7 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { BackButton } from '../components/BackButton.tsx'
 import { CitationChips } from '../components/CitationChips.tsx'
@@ -79,7 +80,14 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
                     {[content.position, content.part ? `Teil ${content.part}` : null].filter(Boolean).join(', ')}
                   </TableCell>
                 )}
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{version?.number || work.number}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  {version?.number || work.number}
+                  {content.isEarliestPrint && (
+                    <Tooltip title="Frühester Druck: aus dem Datum abgeleitet, hier ist das Werk oder ein Teil davon zuerst belegt">
+                      <Chip label="Frühester Druck" size="small" variant="outlined" sx={{ ml: 1 }} />
+                    </Tooltip>
+                  )}
+                </TableCell>
                 <TableCell>
                   {shownTitle}
                   {inSource && (
@@ -124,6 +132,8 @@ export function SourceDetailPage() {
 
   const contents = getSourceContents(source)
   const hasRism = Boolean(source.rismLabel || source.rismUrl)
+  // Je Werk einmal, auch wenn es zusaetzlich als Fassung im selben Druck steht
+  const earliestCount = new Set(contents.filter((content) => content.isEarliestPrint).map(({ work }) => work['@id'])).size
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3 }, overflowY: 'auto', flex: 1, minHeight: 0 }}>
@@ -161,7 +171,11 @@ export function SourceDetailPage() {
           <Fact label="Datierung" labelWidth={120} value={source.dateLabel} />
           <Fact label="Ort" labelWidth={120} value={source.place ?? ''} />
           <Fact label="Verlag" labelWidth={120} value={source.publisher ?? ''} />
-          <Fact label="Werke" labelWidth={120} value={contents.length} />
+          <Fact
+            label="Werke"
+            labelWidth={120}
+            value={earliestCount > 0 ? `${contents.length}, davon ${earliestCount} hier zuerst belegt` : contents.length}
+          />
           <Fact label="Quellenart" labelWidth={120} value={source.sourceType ?? ''} />
           <Fact label="Stimmbücher" labelWidth={120} value={source.partbooks ?? ''} />
           <Fact label="RISM" labelWidth={120} value={hasRism ? <SourceRism source={source} /> : ''} />

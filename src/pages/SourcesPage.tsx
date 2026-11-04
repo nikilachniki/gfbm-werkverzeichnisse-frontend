@@ -30,6 +30,7 @@ interface Row {
   rism: string
   dateLabel: string
   workCount: number
+  earliestCount: number
   voiceCounts: string
   languages: string
 }
@@ -107,6 +108,13 @@ function createColumns(query: string): GridColDef<Row>[] {
       : []),
     { field: 'dateLabel', headerName: 'Datierung', width: 100 },
     { field: 'workCount', headerName: 'Werke', type: 'number', width: 80 },
+    {
+      field: 'earliestCount',
+      headerName: 'Zuerst belegt',
+      description: 'Werke, deren frühester Druck dieser Druck ist, aus dem Datum abgeleitet',
+      type: 'number',
+      width: 120,
+    },
     { field: 'voiceCounts', headerName: 'Stimmen', width: 110 },
     { field: 'languages', headerName: 'Sprache', flex: 1, minWidth: 120, ...highlighted('languages') },
   ]
@@ -132,6 +140,9 @@ export function SourcesPage({ filters, onFiltersChange }: SourcesPageProps) {
         rism: summary.source.rismLabel ?? '',
         dateLabel: summary.source.dateLabel,
         workCount: summary.contents.length,
+        earliestCount: new Set(
+          summary.contents.filter((content) => content.isEarliestPrint).map(({ work }) => work['@id']),
+        ).size,
         voiceCounts: summary.voiceCounts.join(', '),
         languages: summary.languages.join(', '),
       })),

@@ -49,7 +49,7 @@ interface Row {
   title: string
   voiceCounts: string
   prints: string
-  printSigla: { siglum: string }[]
+  printSigla: { siglum: string; earliest: boolean }[]
   textAuthorOrSource: string
   textAuthors: TextAuthorLabel[]
   textSources: string[]
@@ -234,7 +234,9 @@ function createColumns(onToggle: (workId: string) => void, query: string): GridC
     renderCell: (params: GridRenderCellParams<Row>) => (
       <SiglaCell
         sigla={params.row.printSigla}
-        renderChip={(entry) => <SourceChip siglum={entry.siglum} maxWidth={SIGLUM_CHIP_MAX_WIDTH} />}
+        renderChip={(entry) => (
+          <SourceChip siglum={entry.siglum} earliest={entry.earliest} maxWidth={SIGLUM_CHIP_MAX_WIDTH} />
+        )}
       />
     ),
   },
@@ -330,20 +332,18 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
 
     const toRow = (work: Work, extra: Partial<Row>): Row => {
       const sigla = manuscriptSigla(work)
-      const printSigla = Array.from(
-        new Set(
-          getWorkSources(work)
-            .filter(({ source }) => source.kind !== 'manuscript')
-            .map(({ source }) => source.siglum),
-        ),
-      )
+      const printContents = getWorkSources(work).filter(({ source }) => source.kind !== 'manuscript')
+      const printSigla = Array.from(new Set(printContents.map(({ source }) => source.siglum)))
       return {
         id: work['@id'],
         number: work.number,
         title: work.title,
         voiceCounts: work.voiceCounts.join(', '),
         prints: printSigla.join(', '),
-        printSigla: printSigla.map((siglum) => ({ siglum })),
+        printSigla: printSigla.map((siglum) => ({
+          siglum,
+          earliest: printContents.some((item) => item.source.siglum === siglum && item.isEarliestPrint),
+        })),
         textAuthorOrSource: formatTextAuthorOrSource(work),
         textAuthors: textAuthorLabels(work),
         textSources: work.textSources,

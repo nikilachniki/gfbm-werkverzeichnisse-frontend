@@ -226,7 +226,7 @@ function PrintCard({ item }: { item: WorkInSource }) {
         sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
-          <SourceChip siglum={source.siglum} sx={{ flexShrink: 0 }} />
+          <SourceChip siglum={source.siglum} earliest={item.isEarliestPrint} sx={{ flexShrink: 0 }} />
           <RismBadge source={source} />
           <Typography variant="body2">
             {source.description && <TextWithSourceLinks text={source.description} />}
@@ -322,6 +322,9 @@ export function WorkDetailPage() {
   const contents = getWorkSources(work)
   const prints = contents.filter(({ source }) => source.kind !== 'manuscript')
   const manuscripts = contents.filter(({ source }) => source.kind === 'manuscript')
+  const earliestPrints = Array.from(
+    new Set(prints.filter((item) => item.isEarliestPrint).map(({ source }) => source.siglum)),
+  )
   const versions = getVersions(work)
   const expression = work.expression
 
@@ -371,6 +374,21 @@ export function WorkDetailPage() {
           <Fact label="Gattung" labelWidth={130} value={work.genres.join(', ')} />
           <Fact label="Sprache" labelWidth={130} value={work.languages.join(', ')} />
           <Fact label="Stimmen" labelWidth={130} value={work.voiceCounts.join(', ')} />
+          <Fact
+            label="Frühester Druck"
+            labelWidth={130}
+            value={
+              earliestPrints.length > 0 ? (
+                <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
+                  {earliestPrints.map((siglum) => (
+                    <SourceChip key={siglum} siglum={siglum} earliest />
+                  ))}
+                </Stack>
+              ) : (
+                ''
+              )
+            }
+          />
           <Fact label="Tonart" labelWidth={130} value={expression?.key ?? ''} />
           <Fact label="Metrum" labelWidth={130} value={expression?.meter ?? ''} />
           <Fact label="Tempo" labelWidth={130} value={expression?.tempo ?? ''} />

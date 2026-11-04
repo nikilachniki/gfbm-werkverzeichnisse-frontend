@@ -274,6 +274,8 @@ export interface WorkInSource {
   // Gesetzt, wenn das Stück in dieser Quelle als eigene Fassung geführt ist
   version: Expression | null
   source: Source
+  // Der frueheste Druck des Werks, aus dem Datum abgeleitet, siehe markEarliestPrints
+  isEarliestPrint: boolean
   position: string | null
   part: string | null
   titleInSource: string | null

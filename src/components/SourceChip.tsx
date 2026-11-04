@@ -6,10 +6,26 @@ import { findSourceBySiglum, sourceLabel, sourcePath } from '../catalogueData.ts
 
 // Sigle einer Quelle als Chip, der zu ihrer Detailseite fuehrt. stopPropagation
 // verhindert, dass der Klick zugleich die umgebende Zeile bzw. das Akkordeon ausloest.
-export function SourceChip({ siglum, maxWidth, sx }: { siglum: string; maxWidth?: number; sx?: SxProps<Theme> }) {
+// Der frueheste Druck eines Werks ist gefuellt, die uebrigen sind umrandet.
+export function SourceChip({
+  siglum,
+  earliest = false,
+  maxWidth,
+  sx,
+}: {
+  siglum: string
+  earliest?: boolean
+  maxWidth?: number
+  sx?: SxProps<Theme>
+}) {
   const navigate = useNavigate()
   const source = findSourceBySiglum(siglum)
-  const tooltip = [source ? sourceLabel(source) : siglum, source?.dateLabel ?? '', source?.description ?? '']
+  const tooltip = [
+    source ? sourceLabel(source) : siglum,
+    earliest ? 'Frühester Druck' : '',
+    source?.dateLabel ?? '',
+    source?.description ?? '',
+  ]
     .filter(Boolean)
     .join(' – ')
   return (
@@ -17,7 +33,7 @@ export function SourceChip({ siglum, maxWidth, sx }: { siglum: string; maxWidth?
       <Chip
         size="small"
         label={siglum}
-        variant="outlined"
+        variant={earliest ? 'filled' : 'outlined'}
         clickable={Boolean(source)}
         onClick={
           source
