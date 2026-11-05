@@ -43,7 +43,6 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
     works.some((work) => work.textSources.length > 0),
   )
   const hasPositions = contents.some((content) => content.position || content.part)
-  const hasDatings = contents.some((content) => content.dating)
   const hasNotes = contents.some((content) => content.note)
   const hasLanguages = works.some((work) => work.languages.length > 0)
 
@@ -59,7 +58,6 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
             <TableCell>{authorOrSourceHeader}</TableCell>
             <TableCell>Ausgaben</TableCell>
             {hasLanguages && <TableCell>Sprache</TableCell>}
-            {hasDatings && <TableCell>Datierung</TableCell>}
             {hasNotes && <TableCell>Bemerkung</TableCell>}
           </TableRow>
         </TableHead>
@@ -105,7 +103,6 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
                   <CitationChips item={version ?? work} />
                 </TableCell>
                 {hasLanguages && <TableCell>{work.languages.join(', ')}</TableCell>}
-                {hasDatings && <TableCell>{content.dating}</TableCell>}
                 {hasNotes && <TableCell>{content.note}</TableCell>}
               </TableRow>
             )
@@ -121,7 +118,6 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
 function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
   const hasPositions = pieces.some((piece) => piece.position || piece.part)
   const hasVoices = pieces.some((piece) => piece.voices !== null)
-  const hasDatings = pieces.some((piece) => piece.dating)
   const hasNotes = pieces.some((piece) => piece.note)
   return (
     <TableContainer>
@@ -131,7 +127,6 @@ function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
             {hasPositions && <TableCell>Nr.</TableCell>}
             <TableCell>Titel in der Quelle</TableCell>
             {hasVoices && <TableCell>Stimmen</TableCell>}
-            {hasDatings && <TableCell>Datierung</TableCell>}
             {hasNotes && <TableCell>Bemerkung</TableCell>}
           </TableRow>
         </TableHead>
@@ -145,7 +140,6 @@ function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
               )}
               <TableCell>{piece.title}</TableCell>
               {hasVoices && <TableCell>{piece.voices}</TableCell>}
-              {hasDatings && <TableCell>{piece.dating}</TableCell>}
               {hasNotes && <TableCell>{piece.note}</TableCell>}
             </TableRow>
           ))}

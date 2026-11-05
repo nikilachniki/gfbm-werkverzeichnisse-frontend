@@ -280,7 +280,7 @@ export const sources: Source[] = rawManifestations
       title,
       titlePage: raw.titlePages?.[0] ? noteText(raw.titlePages[0]) : null,
       year: publicationYear(raw.publication),
-      dateLabel: publicationLabel(raw.publication),
+      dateLabel: raw.dating ?? publicationLabel(raw.publication),
       place: placeName(raw.publication?.place),
       publisher: raw.publication?.publisherName ?? null,
       description: description ? noteText(description) : null,
@@ -331,7 +331,6 @@ for (const raw of rawManifestations) {
           position: content.position ?? null,
           part: content.part ?? null,
           voices: content.voices ?? null,
-          dating: content.dating ?? null,
           note: content.note ?? null,
         },
       ])
@@ -350,7 +349,6 @@ for (const raw of rawManifestations) {
       part: content.part ?? null,
       titleInSource: content.titleInSource ?? null,
       voices: content.voices ?? null,
-      dating: content.dating ?? null,
       note: content.note ?? null,
     }
     contentsBySource.set(source['@id'], [...(contentsBySource.get(source['@id']) ?? []), item])

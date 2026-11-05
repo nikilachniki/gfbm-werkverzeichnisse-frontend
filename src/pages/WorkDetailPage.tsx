@@ -190,7 +190,6 @@ function pieceSummary(item: WorkInSource): string {
     item.version ? `Fassung ${item.version.number}` : null,
     item.voices !== null ? `${item.voices} Stimmen` : null,
     item.titleInSource,
-    item.dating,
     item.note,
   ]
     .filter(Boolean)
@@ -273,8 +272,8 @@ function ManuscriptCard({ item }: { item: WorkInSource }) {
           <Fact label="Frühere Signatur" value={physical?.formerShelfmark ?? ''} />
           <Fact label="Titel" value={item.titleInSource ?? ''} />
           <Fact label="Stimmen" value={item.voices ?? ''} />
-          <Fact label="Datierung" value={item.dating ?? ''} />
           <Fact label="Bemerkung" value={item.note ?? ''} />
+          <Fact label="Datierung" value={source.dateLabel} />
           <Fact label="Quellenart" value={source.sourceType ?? ''} />
           {source.notes.map((note) => (
             <Fact key={note.html} label={note.label ?? 'Anmerkung'} value={noteText(note)} />

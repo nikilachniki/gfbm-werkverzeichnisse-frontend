@@ -92,7 +92,6 @@ export interface RawContent {
   part?: string
   titleInSource?: string
   voices?: number
-  dating?: string
   note?: string
 }
 
@@ -108,6 +107,7 @@ export interface RawManifestation {
   contents?: RawContent[]
   sourceType?: string
   partbooks?: string
+  dating?: string
   literature?: string[]
   sameAs?: string[]
   notes?: RawNote[]
@@ -281,7 +281,6 @@ export interface WorkInSource {
   part: string | null
   titleInSource: string | null
   voices: number | null
-  dating: string | null
   note: string | null
 }
 
@@ -291,7 +290,6 @@ export interface UnassignedPiece {
   position: string | null
   part: string | null
   voices: number | null
-  dating: string | null
   note: string | null
 }
 
