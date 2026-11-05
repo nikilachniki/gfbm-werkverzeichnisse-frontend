@@ -5,7 +5,7 @@
  * eigene Kopie der Daten.
  *
  * Der Standard zeigt auf einen Beispieldatensatz in lassoDBData, das als
- * Geschwisterordner neben diesem Projekt liegt (Branch werkverzeichnis-vorlage).
+ * Geschwisterordner neben diesem Projekt liegt (Branch main).
  * Fuer ein echtes Verzeichnis zeigt WV_DATA_DIR auf dessen data/-Ordner.
  *
  * Aufruf:  node scripts/sync-data.mjs
@@ -38,7 +38,7 @@ const FILES = [
 
 if (!existsSync(sourceDir)) {
   console.error(`Quellverzeichnis nicht gefunden: ${sourceDir}`)
-  console.error('Liegt lassoDBData als Geschwisterordner neben diesem Projekt, auf dem Branch werkverzeichnis-vorlage?')
+  console.error('Liegt lassoDBData als Geschwisterordner neben diesem Projekt, auf dem Branch main?')
   console.error('Alternativ WV_DATA_DIR auf den Datenordner setzen.')
   process.exit(1)
 }

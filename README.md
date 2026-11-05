@@ -1,8 +1,8 @@
 # Werkverzeichnis-Oberfläche
 
 Prototyp einer Weboberfläche für musikalische Werkverzeichnisse, entstanden aus der
-Lasso-Werkdatenbank (Branch `main`). Sie zeigt die Daten der
-[Werkverzeichnis-Vorlage](https://github.com/nikilachniki/lassoDBData/tree/werkverzeichnis-vorlage):
+Lasso-Werkdatenbank (Branch `lasso`). Sie zeigt die Daten der
+[Werkverzeichnis-Vorlage](https://github.com/nikilachniki/lassoDBData):
 Werke, Quellen (Drucke und Handschriften) und Ausgaben. Name, Kürzel und alle Inhalte
 kommen aus den Daten; ein neues Verzeichnis braucht keine Änderung am Code.
 
@@ -18,7 +18,7 @@ ist in `.gitignore` eingetragen. `src/catalogueData.ts` führt sie beim Laden in
 Anzeigemodelle über und ergänzt die Gegenrichtung der Beziehungen.
 
 Ohne weitere Angabe wird der Auszug `examples/lasso-schwierig` aus lassoDBData
-verwendet, das dafür als Geschwisterordner auf dem Branch `werkverzeichnis-vorlage`
+verwendet, das dafür als Geschwisterordner auf dem Branch `main`
 liegen muss:
 
 ```

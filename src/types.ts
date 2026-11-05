@@ -1,6 +1,5 @@
-// Rohdaten nach lassoDBData/schema/catalogue.schema.json (Branch
-// werkverzeichnis-vorlage). Die Seiten arbeiten nicht direkt damit, sondern mit
-// den Anzeigemodellen weiter unten, siehe catalogueData.ts.
+// Rohdaten nach lassoDBData/schema/catalogue.schema.json. Die Seiten arbeiten nicht
+// direkt damit, sondern mit den Anzeigemodellen weiter unten, siehe catalogueData.ts.
 
 export type LanguageText = Record<string, string>
 
