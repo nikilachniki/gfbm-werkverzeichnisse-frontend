@@ -1,3 +1,4 @@
+import { hideEmptyColumns } from '../emptyColumns.ts'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createFilterOptions } from '@mui/material/Autocomplete'
@@ -120,6 +121,18 @@ function createColumns(query: string): GridColDef<Row>[] {
   ]
 }
 
+// Leere Spalten starten ausgeblendet, siehe emptyColumns.ts.
+const HIDDEN_EMPTY_COLUMNS = hideEmptyColumns(
+  sourceSummaries.map((summary) => ({
+    description: summary.source.description ?? '',
+    rism: summary.source.rismLabel ?? '',
+    dateLabel: summary.source.dateLabel,
+    voiceCounts: summary.voiceCounts,
+    languages: summary.languages,
+  })),
+  ['description', 'rism', 'dateLabel', 'voiceCounts', 'languages'],
+)
+
 interface SourcesPageProps {
   filters: SourcesFilters
   onFiltersChange: (filters: SourcesFilters) => void
@@ -169,7 +182,7 @@ export function SourcesPage({ filters, onFiltersChange }: SourcesPageProps) {
           columns={columns}
           // Ohne gewaehlte Spalte bleibt die Reihenfolge von filterSources: nach
           // Relevanz bei aktiver Suche, sonst nach Sigle.
-          initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
+          initialState={{ pagination: { paginationModel: { pageSize: 100 } }, columns: { columnVisibilityModel: HIDDEN_EMPTY_COLUMNS } }}
           pageSizeOptions={[25, 50, 100]}
           density="compact"
           disableRowSelectionOnClick

@@ -1,9 +1,20 @@
 import { useMemo } from 'react'
 import { createFilterOptions } from '@mui/material/Autocomplete'
-import { catalogue, getPerson, textAuthorSearchNames } from '../catalogueData'
+import { catalogue, editions, getPerson, sources, textAuthorSearchNames, works } from '../catalogueData'
 import { FilterBar, type FilterField } from './FilterBar'
 import { multiField, textField, yearRangeField } from './filterFields'
 import { defaultWorksFilters, type WorksFilters } from './filterWorks'
+
+// Der Suchtext nennt nur, was das Verzeichnis auch enthaelt.
+const SEARCH_HINT = `Werke durchsuchen – ${[
+  'Titel',
+  `${catalogue.catalogueAbbreviation}-Nummer`,
+  works.some((work) => work.textAuthors.length > 0) ? 'Textdichter' : '',
+  sources.length > 0 ? 'Quellen' : '',
+  editions.length > 0 ? 'Ausgaben' : '',
+]
+  .filter(Boolean)
+  .join(', ')} …`
 
 // Die Optionen sind Personen-IDs. Angezeigt wird die festgelegte Schreibweise,
 // die Eingabe trifft aber auch die Varianten: "C.Marot" findet Clément Marot.
@@ -57,7 +68,7 @@ export function WorksSearchBar({
       onFiltersChange={onFiltersChange}
       defaultFilters={defaultWorksFilters}
       fields={fields}
-      placeholder={`Werke durchsuchen – Titel, ${catalogue.catalogueAbbreviation}-Nummer, Textdichter, Quellen, Ausgaben …`}
+      placeholder={SEARCH_HINT}
     />
   )
 }

@@ -11,7 +11,7 @@
 // Die Rechte prueft GitHub. Der Token ist ein fein granularer Token nur fuer das Daten-Repo
 // mit: Contents (lesen und schreiben), Pull requests (lesen und schreiben), Actions (lesen).
 
-import { DATA_FILES } from './generate.ts'
+import { CONFIG_FILE, DATA_FILES } from './generate.ts'
 
 export interface RemoteTarget {
   owner: string
@@ -116,7 +116,8 @@ async function branchHead(client: Client, target: RemoteTarget, branch: string):
 }
 
 // Oeffnet den eigenen Arbeitszweig, wenn es ihn gibt, sonst den veroeffentlichten Stand.
-export async function openRemote(client: Client, target: RemoteTarget, login: string): Promise<{ files: Record<string, string>; state: RemoteState }> {
+// config: baukasten.json, die gemeinsame Einrichtung, falls es sie schon gibt.
+export async function openRemote(client: Client, target: RemoteTarget, login: string): Promise<{ files: Record<string, string>; config?: string; state: RemoteState }> {
   const branch = workBranch(login)
   const ownHead = await branchHead(client, target, branch)
   const head = ownHead ?? (await branchHead(client, target, target.base))
@@ -127,7 +128,15 @@ export async function openRemote(client: Client, target: RemoteTarget, login: st
   for (const file of DATA_FILES) {
     files[file] = await client.text(`${repoUrl(target)}/contents/${filePath(target, file)}?ref=${head}`)
   }
-  return { files, state: { target, login, branch, head, onBranch: ownHead !== null } }
+  let config: string | undefined
+  try {
+    config = (await client.text(`${repoUrl(target)}/contents/${filePath(target, CONFIG_FILE)}?ref=${head}`)).replace(/\r\n/g, '\n')
+  } catch (error) {
+    if (!(error instanceof GitHubError && error.status === 404)) {
+      throw error
+    }
+  }
+  return { files, config, state: { target, login, branch, head, onBranch: ownHead !== null } }
 }
 
 // Ein Commit mit allen geaenderten Dateien auf den Arbeitszweig. Hat sich der Zweig

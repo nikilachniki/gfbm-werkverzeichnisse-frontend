@@ -3,6 +3,7 @@
 // scripts/check-baukasten.ts sie gegen validate.py und den MeLODy-Export pruefen kann.
 
 import {
+  configFromPreset,
   ENTITIES,
   entityOf,
   isEntityActive,
@@ -56,6 +57,8 @@ export interface DataSource {
   files: Record<string, string>
   // Aus dem Daten-Repo geoeffnet: wohin gespeichert wird. Ohne Token, der bleibt in der Sitzung.
   remote?: RemoteState
+  // baukasten.json im Datenordner, wie geoeffnet: die gemeinsame Einrichtung des Projekts.
+  config?: string
 }
 
 export interface Draft {
@@ -390,8 +393,9 @@ export function buildCollections(config: Config, draft: Draft): BuiltFiles {
   const expressions = entityOf('expressions')
   const source = draft.source
   // Ein geoeffnetes Verzeichnis nennt seine Komponist*in selbst; der Name im Baukasten
-  // erzeugt dann keinen zweiten Datensatz.
-  const composer = source ? null : composerRecord(config)
+  // erzeugt dann keinen zweiten Datensatz. Nur ein frisches Verzeichnis ohne Angabe
+  // bekommt sie aus dem Baukasten.
+  const composer = source?.catalog.composer ? null : composerRecord(config)
   const composerId = (source?.catalog.composer as string | undefined) ?? (composer?.['@id'] as string | undefined)
   const contributorsField = works.fields.find((field) => field.key === 'contributors') as FieldDef
   const contributorsOn = isFieldActive(config, 'works', contributorsField)
@@ -488,6 +492,7 @@ export function buildCollections(config: Config, draft: Draft): BuiltFiles {
         ...source.catalog,
         ...(label ? { label } : {}),
         ...(abbreviation ? { catalogueAbbreviation: abbreviation } : {}),
+        ...(composer ? { composer: composer['@id'] } : {}),
       }
     : {
         '@context': DEFAULT_CONTEXT,
@@ -517,20 +522,42 @@ export function buildFiles(config: Config, draft: Draft): Record<string, string>
   return files
 }
 
-// Die Dateien, die sich gegenueber dem geoeffneten Verzeichnis geaendert haben.
+export const CONFIG_FILE = 'baukasten.json'
+export const configText = (config: Config): string => `${JSON.stringify(config, null, 2)}\n`
+
+// Die Dateien, die sich gegenueber dem geoeffneten Verzeichnis geaendert haben. Bei einem
+// Verzeichnis aus dem Repo zaehlt auch die Einrichtung (baukasten.json) dazu.
 export function changedFiles(config: Config, draft: Draft): string[] {
   if (!draft.source) {
     return []
   }
   const files = buildFiles(config, draft)
-  return Object.keys(files).filter((name) => files[name] !== draft.source!.files[name])
+  const changed = Object.keys(files).filter((name) => files[name] !== draft.source!.files[name])
+  if (draft.source.remote && configText(config) !== draft.source.config) {
+    changed.push(CONFIG_FILE)
+  }
+  return changed
+}
+
+// Die Einrichtung aus baukasten.json; fehlende Angaben kommen aus der Vorlage.
+export function configFromText(text: string): Config {
+  const stored = JSON.parse(text) as Partial<Config>
+  const base = configFromPreset(stored.presetId && ['lasso', 'lebeau', 'blank'].includes(stored.presetId) ? stored.presetId : 'blank')
+  return {
+    ...base,
+    ...stored,
+    catalogue: { ...base.catalogue, ...stored.catalogue },
+    entities: { ...base.entities, ...stored.entities },
+    fields: { ...stored.fields },
+    expressionMode: stored.expressionMode === 'manual' ? 'manual' : 'auto',
+  } as Config
 }
 
 export const DATA_FILES = ['catalog.json', ...ENTITIES.map((entity) => entity.file)]
 
 // Liest einen data/-Ordner ein. Jeder Datensatz behaelt sein Original, siehe preserve().
 // files: Dateiname -> Inhalt; Zeilenenden duerfen CRLF sein (Windows-Arbeitskopie).
-export function draftFromFiles(files: Record<string, string>, name: string, remote?: RemoteState): Draft {
+export function draftFromFiles(files: Record<string, string>, name: string, remote?: RemoteState, config?: string): Draft {
   const normalized = Object.fromEntries(Object.entries(files).map(([file, text]) => [file, text.replace(/\r\n/g, '\n')]))
   const missing = DATA_FILES.filter((file) => !(file in normalized))
   if (missing.length > 0) {
@@ -582,6 +609,7 @@ export function draftFromFiles(files: Record<string, string>, name: string, remo
     orphanExpressions: entriesOf('expressions').filter((record) => !claimed.has(record['@id'] as string)),
     files: Object.fromEntries(DATA_FILES.map((file) => [file, normalized[file]])),
     ...(remote ? { remote } : {}),
+    ...(config !== undefined ? { config } : {}),
   }
   return draft
 }

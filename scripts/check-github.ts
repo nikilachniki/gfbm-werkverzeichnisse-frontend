@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildFiles, changedFiles, configForDraft, DATA_FILES, draftFromFiles } from '../src/baukasten/generate.ts'
+import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles } from '../src/baukasten/generate.ts'
 import { ConflictError, createClient, mergePull, openRemote, publish, pullStatus, saveRemote, whoAmI, type RemoteTarget } from '../src/baukasten/github.ts'
 import { configFromPreset } from '../src/baukasten/model.ts'
 
@@ -133,7 +133,11 @@ const first = await openRemote(client, target, login)
 check(!first.state.onBranch && first.state.branch === 'redaktion/redakteurin', 'Erstes Öffnen soll von main lesen und den Zweig redaktion/<login> vorsehen')
 const draft = draftFromFiles(first.files, folder, first.state)
 const config = configForDraft(configFromPreset('lasso'), draft)
-check(changedFiles(config, draft).length === 0, 'Frisch geöffnet ist schon etwas geändert')
+// Ohne baukasten.json im Repo ist nur die Einrichtung neu, die Daten sind unveraendert.
+check(JSON.stringify(changedFiles(config, draft)) === JSON.stringify([CONFIG_FILE]), `Frisch geöffnet ist schon etwas geändert: ${changedFiles(config, draft).join(', ')}`)
+// Mit gespeicherter Einrichtung ist nach dem Oeffnen gar nichts geaendert.
+const withConfig = draftFromFiles(first.files, folder, first.state, configText(config))
+check(changedFiles(configForDraft(configFromText(configText(config)), withConfig), withConfig).length === 0, 'Eine gespeicherte Einrichtung gilt nach dem Öffnen als geändert')
 
 // 2. Ein Titel wird geaendert und gespeichert: nur auf dem Arbeitszweig, main bleibt.
 const titles = structuredClone(draft.works[0].values.titles) as { text: Record<string, string> }[]
@@ -141,12 +145,13 @@ const language = Object.keys(titles[0].text)[0]
 titles[0].text[language] += ' (geändert)'
 draft.works[0].values.titles = titles
 const changed = changedFiles(config, draft)
-const built = buildFiles(config, draft)
+const built: Record<string, string> = { ...buildFiles(config, draft), [CONFIG_FILE]: configText(config) }
 const saved = await saveRemote(client, first.state, Object.fromEntries(changed.map((file) => [file, built[file]])), 'Titel geändert')
 check(saved.onBranch && refs.get('redaktion/redakteurin') === saved.head, 'Speichern legt den Arbeitszweig nicht an')
 check(fileOn('main', 'works.json') === first.files['works.json'], 'Speichern hat main verändert')
 check(fileOn('redaktion/redakteurin', 'works.json').includes('(geändert)'), 'Die Änderung fehlt im Arbeitszweig')
 check(fileOn('redaktion/redakteurin', 'persons.json') === first.files['persons.json'], 'Unveränderte Dateien haben sich verändert')
+check(fileOn('redaktion/redakteurin', CONFIG_FILE) === configText(config), 'Die Einrichtung fehlt im Arbeitszweig')
 
 // 3. Erneutes Oeffnen setzt im Arbeitszweig fort.
 const again = await openRemote(client, target, login)

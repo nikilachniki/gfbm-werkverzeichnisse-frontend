@@ -38,7 +38,10 @@ import {
   buildCollections,
   buildFiles,
   changedFiles,
+  CONFIG_FILE,
   configForDraft,
+  configFromText,
+  configText,
   createMissingExpressions,
   DATA_FILES,
   displayName,
@@ -789,11 +792,11 @@ function RemotePanel({ config, draft, onDraft }: { config: Config; draft: Draft;
 
   const save = () =>
     run(async () => {
-      const files = buildFiles(config, draft)
+      const files: Record<string, string> = { ...buildFiles(config, draft), [CONFIG_FILE]: configText(config) }
       const text = message.trim() || `Baukasten: ${changed.join(', ')}`
       const state = await saveRemote(client, remote, Object.fromEntries(changed.map((file) => [file, files[file]])), text)
       // Das Gespeicherte ist der neue Ausgangspunkt.
-      onDraft(draftFromFiles(files, draft.source!.name, state))
+      onDraft(draftFromFiles(files, draft.source!.name, state, files[CONFIG_FILE]))
       setMessage('')
     })
 
@@ -812,7 +815,7 @@ function RemotePanel({ config, draft, onDraft }: { config: Config; draft: Draft;
       }
       await mergePull(client, remote, pull.number)
       const reopened = await openRemote(client, remote.target, login)
-      onDraft(draftFromFiles(reopened.files, draft.source!.name, reopened.state))
+      onDraft(draftFromFiles(reopened.files, draft.source!.name, reopened.state, reopened.config))
       setPull(null)
     })
 
@@ -874,8 +877,8 @@ function SourceBar({ config, draft, onOpen, onClose, onDraft }: { config: Config
     load().then(onOpen, (reason: Error) => setError(reason.message))
   }
   const openFromRepo = async () => {
-    const { files, state } = await openRemote(createClient(token), DEFAULT_TARGET, login)
-    return draftFromFiles(files, `${DEFAULT_TARGET.repo}/${DEFAULT_TARGET.path} (${state.onBranch ? state.branch : DEFAULT_TARGET.base})`, state)
+    const { files, config: stored, state } = await openRemote(createClient(token), DEFAULT_TARGET, login)
+    return draftFromFiles(files, `${DEFAULT_TARGET.repo}/${DEFAULT_TARGET.path} (${state.onBranch ? state.branch : DEFAULT_TARGET.base})`, state, stored)
   }
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -1164,6 +1167,12 @@ export function BaukastenPage() {
     })
 
   const selectPreset = (id: PresetId) => {
+    if (draft.source) {
+      // Ein geoeffnetes Verzeichnis bleibt: Die Vorlage aendert nur die Einrichtung. Name,
+      // Kuerzel und Komponist*in des Verzeichnisses bleiben, und was Daten enthaelt, bleibt an.
+      setConfig((previous) => configForDraft({ ...configFromPreset(id), catalogue: previous.catalogue }, draft))
+      return
+    }
     setConfig(configFromPreset(id))
     // Ein Entwurf passt nur zufaellig zu einer anderen Vorlage.
     setDraft(emptyDraft())
@@ -1178,7 +1187,7 @@ export function BaukastenPage() {
         <PresetStep
           config={config}
           onSelect={(id) => {
-            if (id !== config.presetId && (!hasDraft || window.confirm('Beim Wechsel der Vorlage gehen die Einträge unter „Ausprobieren“ verloren. Wechseln?'))) {
+            if (id !== config.presetId && (!hasDraft || draft.source || window.confirm('Beim Wechsel der Vorlage gehen die Einträge unter „Ausprobieren“ verloren. Wechseln?'))) {
               selectPreset(id)
             }
           }}
@@ -1206,8 +1215,9 @@ export function BaukastenPage() {
           onDraft={setDraft}
           onOpen={(next) => {
             setDraft(next)
-            // Damit alles Vorhandene im Formular erscheint.
-            setConfig((previous) => configForDraft(previous, next))
+            // Liegt im Repo eine Einrichtung, gilt sie fuer alle; sonst bleibt die eigene.
+            // Dazu wird alles eingeschaltet, was Daten enthaelt, damit es im Formular erscheint.
+            setConfig((previous) => configForDraft(next.source?.config ? configFromText(next.source.config) : previous, next))
           }}
           onDownload={() => download(config, draft)}
           sampleAvailable={config.presetId !== 'blank'}

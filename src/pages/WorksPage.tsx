@@ -18,6 +18,7 @@ import {
 } from '@mui/x-data-grid'
 import { SiglumChip } from '../components/SiglumChip.tsx'
 import { SourceChip } from '../components/SourceChip.tsx'
+import { hideEmptyColumns } from '../emptyColumns.ts'
 import { AuthorOrSourceText } from '../helpers.tsx'
 import type { Work } from '../types.ts'
 import {
@@ -165,6 +166,20 @@ function SiglaCell<T extends { siglum: string }>({
     </Stack>
   )
 }
+
+// Was ein Verzeichnis gar nicht erfasst, etwa Drucke bei einem Verzeichnis ohne Quellen,
+// erscheint nicht als leere Spalte.
+const HIDDEN_EMPTY_COLUMNS = hideEmptyColumns(
+  works.map((work) => ({
+    voiceCounts: work.voiceCounts,
+    prints: getWorkSources(work).filter(({ source }) => source.kind !== 'manuscript'),
+    textAuthorOrSource: formatTextAuthorOrSource(work),
+    editions: work.citations,
+    languages: work.languages,
+    siglaText: manuscriptSigla(work),
+  })),
+  ['voiceCounts', 'prints', 'textAuthorOrSource', 'editions', 'languages', 'siglaText'],
+)
 
 function createColumns(onToggle: (workId: string) => void, query: string): GridColDef<Row>[] {
   return [
@@ -447,7 +462,7 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
           sortingMode="server"
           sortModel={sortModel}
           onSortModelChange={setSortModel}
-          initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
+          initialState={{ pagination: { paginationModel: { pageSize: 100 } }, columns: { columnVisibilityModel: HIDDEN_EMPTY_COLUMNS } }}
           pageSizeOptions={[25, 50, 100]}
           density="compact"
           disableRowSelectionOnClick

@@ -11,7 +11,7 @@ import Link from '@mui/material/Link'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import { catalogue } from '../catalogueData.ts'
+import { catalogue, editions, sources } from '../catalogueData.ts'
 import { EditionsPage } from './EditionsPage.tsx'
 import { InfoDialog } from './InfoDialog.tsx'
 import { SourceDetailPage } from './SourceDetailPage.tsx'
@@ -44,8 +44,9 @@ function MainNav() {
       sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, minWidth: 0, px: 1.5 } }}
     >
       <Tab label="Werke" value="werke" component={RouterLink} to="/" />
-      <Tab label="Quellen" value="quellen" component={RouterLink} to="/quellen" />
-      <Tab label="Ausgaben" value="ausgaben" component={RouterLink} to="/ausgaben" />
+      {/* Bereiche ohne Eintraege, etwa Quellen bei einem Verzeichnis, das keine erfasst, entfallen. */}
+      {sources.length > 0 && <Tab label="Quellen" value="quellen" component={RouterLink} to="/quellen" />}
+      {editions.length > 0 && <Tab label="Ausgaben" value="ausgaben" component={RouterLink} to="/ausgaben" />}
     </Tabs>
   )
 }

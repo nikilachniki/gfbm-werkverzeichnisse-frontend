@@ -1,0 +1,86 @@
+name: Website bauen (gemeinsam)
+
+# Wiederverwendbarer Workflow: baut diese Website mit den Daten eines Projekt-Repos und
+# veroeffentlicht sie auf dessen GitHub Pages. Ein Werkverzeichnis braucht dafuer keinen
+# eigenen Website-Code, nur ein Daten-Repo (Vorlage: nikilachniki/lassoDBData).
+#
+# Aufruf aus dem Projekt-Repo, siehe dort .github/workflows/pruefen.yml:
+#
+#   jobs:
+#     website:
+#       uses: nikilachniki/lassoDB/.github/workflows/website.yml@main
+#       permissions: { contents: read, pages: write, id-token: write }
+#       with:
+#         data-path: data
+#
+# Die Seite liegt danach unter https://<owner>.github.io/<repo>/, die Verwaltung unter
+# .../#/admin und speichert in genau dieses Repo. Im Projekt-Repo muss einmalig
+# Settings > Pages > Source auf "GitHub Actions" stehen.
+on:
+  workflow_call:
+    inputs:
+      data-path:
+        description: Ordner mit den Datendateien im Projekt-Repo
+        type: string
+        default: data
+      website-ref:
+        description: Stand des Website-Codes (Branch oder Tag von nikilachniki/lassoDB)
+        type: string
+        default: main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Daten auschecken
+        uses: actions/checkout@v4
+        with:
+          path: daten
+
+      - name: Website-Code auschecken
+        uses: actions/checkout@v4
+        with:
+          repository: nikilachniki/lassoDB
+          ref: ${{ inputs.website-ref }}
+          path: website
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Abhaengigkeiten installieren
+        working-directory: website
+        run: npm ci
+
+      - name: Bauen
+        working-directory: website
+        env:
+          WV_DATA_DIR: ${{ github.workspace }}/daten/${{ inputs.data-path }}
+          WV_BASE: /${{ github.event.repository.name }}/
+          # Die Verwaltung speichert in das Repo, aus dem die Seite gebaut wird.
+          VITE_DATA_REPO: ${{ github.repository }}
+          VITE_DATA_PATH: ${{ inputs.data-path }}
+          VITE_DATA_BRANCH: ${{ github.event.repository.default_branch }}
+        run: npm run build
+
+      - name: Pages vorbereiten
+        uses: actions/configure-pages@v5
+
+      - name: Build-Ergebnis hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Nach GitHub Pages deployen
+        id: deployment
+        uses: actions/deploy-pages@v4

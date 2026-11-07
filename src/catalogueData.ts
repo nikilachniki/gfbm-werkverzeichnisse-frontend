@@ -121,7 +121,8 @@ function instrumentationVoices(expression: RawExpression): number[] {
   const details = expression.instrumentation
     ? (rawInstrumentations.get(expression.instrumentation)?.details ?? [])
     : []
-  return details.flatMap((detail) => (detail.quantity !== undefined ? [detail.quantity] : []))
+  // Nur Stimmen zaehlen: "1 Violoncello" in einer Sonate ist keine Stimmenzahl.
+  return details.flatMap((detail) => (detail.quantity !== undefined && detail.medium === 'terms:Voices' ? [detail.quantity] : []))
 }
 
 function formatKey(key: RawExpression['key']): string {

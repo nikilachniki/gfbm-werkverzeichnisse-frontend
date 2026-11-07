@@ -290,6 +290,20 @@ for (const preset of PRESETS) {
   }
 }
 
+// Ein frisches Projekt (leeres data/ ohne Komponist*in) bekommt sie aus dem Baukasten,
+// und das Ergebnis besteht validate.py.
+{
+  const folder = path.join(dataRepo, 'data')
+  const files = Object.fromEntries(DATA_FILES.map((file) => [file, readFileSync(path.join(folder, file), 'utf8')]))
+  const fresh = draftFromFiles(files, 'neu')
+  const config = { ...configFromPreset('lebeau'), catalogue: { label: 'Werkverzeichnis Luise Adolpha Le Beau', abbreviation: 'LBWV', composer: 'Le Beau, Luise Adolpha' } }
+  const { catalog, collections } = buildCollections(config, fresh)
+  check(catalog.composer === 'persons:le-beau', `Frisches Verzeichnis: Komponist*in fehlt im Katalog (${String(catalog.composer)})`)
+  check(collections.persons.some((person) => person['@id'] === 'persons:le-beau'), 'Frisches Verzeichnis: Personendatensatz der Komponist*in fehlt')
+  check(catalog.label === 'Werkverzeichnis Luise Adolpha Le Beau' && catalog['@context'] === '../schema/context.jsonld', 'Frisches Verzeichnis: Name oder Kontext stimmt nicht')
+  runScripts('frisch', config, fresh)
+}
+
 rmSync(scratch, { recursive: true, force: true })
 
 if (failures.length > 0) {
