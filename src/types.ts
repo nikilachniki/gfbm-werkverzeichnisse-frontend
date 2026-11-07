@@ -1,4 +1,4 @@
-// Rohdaten nach lassoDBData/schema/catalogue.schema.json. Die Seiten arbeiten nicht
+// Rohdaten nach der Vorlage (gfbm-werkverzeichnisse/schema/catalogue.schema.json). Die Seiten arbeiten nicht
 // direkt damit, sondern mit den Anzeigemodellen weiter unten, siehe catalogueData.ts.
 
 export type LanguageText = Record<string, string>

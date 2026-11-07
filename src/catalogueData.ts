@@ -381,7 +381,7 @@ const YEAR_NUMBER_SIGLUM = /^\d{4}-\d+/
 // Der frueheste Druck eines Werks ergibt sich aus dem Datum und braucht kein eigenes
 // Feld. Innerhalb eines Jahres entscheidet die laufende Nummer der Sigle; fehlt sie,
 // bleiben alle Drucke des Jahres markiert, statt einen zu raten. Siehe
-// lassoDBData/docs/entscheidungen.md, Abschnitt 7.
+// gfbm-werkverzeichnisse/docs/entscheidungen.md, Abschnitt 7.
 function markEarliestPrints(list: WorkInSource[]): void {
   const dated = list.filter(({ source }) => source.kind === 'print' && source.year !== null)
   if (dated.length === 0) {

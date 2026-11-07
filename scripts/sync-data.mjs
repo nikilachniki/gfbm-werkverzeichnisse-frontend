@@ -4,8 +4,9 @@
  * beim Vite-Build eingebunden werden koennen. Dieses Repository haelt bewusst keine
  * eigene Kopie der Daten.
  *
- * Der Standard zeigt auf einen Beispieldatensatz in lassoDBData, das als
- * Geschwisterordner neben diesem Projekt liegt (Branch main).
+ * Der Standard zeigt auf einen Beispieldatensatz in der Vorlage gfbm-werkverzeichnisse,
+ * die als Geschwisterordner neben diesem Projekt liegt (Branch main). Ein lokaler Ordner
+ * mit dem frueheren Namen lassoDBData wird ebenfalls gefunden.
  * Fuer ein echtes Verzeichnis zeigt WV_DATA_DIR auf dessen data/-Ordner.
  *
  * Aufruf:  node scripts/sync-data.mjs
@@ -19,8 +20,11 @@ import path from 'node:path'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(here, '..')
 
-const sourceDir =
-  process.env.WV_DATA_DIR ?? path.resolve(projectRoot, '..', 'lassoDBData', 'examples', 'lasso-schwierig')
+// Die Vorlage liegt als Geschwisterordner neben diesem Projekt, unter neuem oder altem Namen.
+const templateDir =
+  ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(projectRoot, '..', name)).find((folder) => existsSync(folder)) ??
+  path.resolve(projectRoot, '..', 'gfbm-werkverzeichnisse')
+const sourceDir = process.env.WV_DATA_DIR ?? path.resolve(templateDir, 'examples', 'lasso-schwierig')
 const targetDir = path.resolve(projectRoot, 'src', 'data')
 
 const FILES = [
@@ -38,7 +42,7 @@ const FILES = [
 
 if (!existsSync(sourceDir)) {
   console.error(`Quellverzeichnis nicht gefunden: ${sourceDir}`)
-  console.error('Liegt lassoDBData als Geschwisterordner neben diesem Projekt, auf dem Branch main?')
+  console.error('Liegt die Vorlage (gfbm-werkverzeichnisse) als Geschwisterordner neben diesem Projekt, auf dem Branch main?')
   console.error('Alternativ WV_DATA_DIR auf den Datenordner setzen.')
   process.exit(1)
 }

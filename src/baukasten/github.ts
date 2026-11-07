@@ -44,7 +44,7 @@ export class GitHubError extends Error {
 export class ConflictError extends GitHubError {}
 
 const env = import.meta.env ?? {}
-const [defaultOwner, defaultRepo] = ((env.VITE_DATA_REPO as string | undefined) ?? 'nikilachniki/lassoDBData').split('/')
+const [defaultOwner, defaultRepo] = ((env.VITE_DATA_REPO as string | undefined) ?? 'nikilachniki/gfbm-werkverzeichnisse').split('/')
 
 // Welches Verzeichnis der Editor bearbeitet. Beim Bauen per Umgebungsvariable anpassbar,
 // denn jedes Werkverzeichnis hat sein eigenes Daten-Repo.

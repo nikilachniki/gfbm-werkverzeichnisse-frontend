@@ -2,7 +2,7 @@ name: Website bauen (gemeinsam)
 
 # Wiederverwendbarer Workflow: baut diese Website mit den Daten eines Projekt-Repos und
 # veroeffentlicht sie auf dessen GitHub Pages. Ein Werkverzeichnis braucht dafuer keinen
-# eigenen Website-Code, nur ein Daten-Repo (Vorlage: nikilachniki/lassoDBData).
+# eigenen Website-Code, nur ein Daten-Repo (Vorlage: nikilachniki/gfbm-werkverzeichnisse).
 #
 # Aufruf aus dem Projekt-Repo, siehe dort .github/workflows/pruefen.yml:
 #

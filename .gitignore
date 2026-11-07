@@ -5,7 +5,7 @@ node_modules/
 dist/
 dist-ssr/
 
-# Aus lassoDBData synchronisierte Daten, siehe scripts/sync-data.mjs.
+# Aus der Vorlage (gfbm-werkverzeichnisse) synchronisierte Daten, siehe scripts/sync-data.mjs.
 # Keine eigene Kopie im Repository, sonst laeuft sie gegenueber der
 # eigentlichen Quelle auseinander. Wird vor jedem dev/build neu geholt.
 src/data/

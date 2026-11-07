@@ -2,13 +2,17 @@
 
 Prototyp einer Weboberfläche für musikalische Werkverzeichnisse, entstanden aus der
 Lasso-Werkdatenbank (Branch `lasso`). Sie zeigt die Daten der
-[Werkverzeichnis-Vorlage](https://github.com/nikilachniki/lassoDBData):
+[Werkverzeichnis-Vorlage](https://github.com/nikilachniki/gfbm-werkverzeichnisse):
 Werke, Quellen (Drucke und Handschriften) und Ausgaben. Name, Kürzel und alle Inhalte
 kommen aus den Daten; ein neues Verzeichnis braucht keine Änderung am Code.
 
 Technisch: Vite, React, TypeScript, MUI mit der DataGrid-Komponente. Reine statische
-Auslieferung ohne Server oder Datenbank. **Noch ohne Eingabe:** Daten werden in der
-Vorlage gepflegt, die Oberfläche zeigt sie nur an.
+Auslieferung ohne Server oder Datenbank. Eingegeben wird in der Verwaltung (siehe
+Baukasten), gespeichert direkt im Daten-Repo.
+
+Dieser Code dient allen Werkverzeichnissen: Jedes Projekt-Repo aus der Vorlage baut damit
+über `.github/workflows/website.yml` seine eigene Seite. Leere Spalten und Bereiche ohne
+Einträge (etwa Quellen) blendet die Seite von selbst aus.
 
 ## Wie die Daten hierherkommen
 
@@ -17,20 +21,20 @@ Verzeichnisses nach `src/data/`, von wo sie ins Bundle eingebunden werden. Der O
 ist in `.gitignore` eingetragen. `src/catalogueData.ts` führt sie beim Laden in die
 Anzeigemodelle über und ergänzt die Gegenrichtung der Beziehungen.
 
-Ohne weitere Angabe wird der Auszug `examples/lasso-schwierig` aus lassoDBData
-verwendet, das dafür als Geschwisterordner auf dem Branch `main`
-liegen muss:
+Ohne weitere Angabe wird der Auszug `examples/lasso-schwierig` aus der Vorlage
+verwendet, die dafür als Geschwisterordner auf dem Branch `main` liegen muss (der
+frühere Ordnername `lassoDBData` geht auch):
 
 ```
 IdeaProjects/
 ├── lassoDB/
-└── lassoDBData/
+└── gfbm-werkverzeichnisse/
 ```
 
 Ein anderes Verzeichnis wählt `WV_DATA_DIR`, in PowerShell etwa:
 
 ```powershell
-$env:WV_DATA_DIR = "..\lassoDBData\examples\beispiel"; npm run dev
+$env:WV_DATA_DIR = "..\gfbm-werkverzeichnisse\examples\beispiel"; npm run dev
 ```
 
 ## Baukasten
@@ -41,7 +45,7 @@ sie nach dem Anmelden mit einem GitHub-Token. Dort stellt man ein
 neues Verzeichnis zusammen: Vorlage wählen (Lasso,
 Le Beau oder leer), Datentypen und Felder an- und abwählen, festlegen, wie Werk und
 Expression verknüpft sind, und das Formular ausprobieren. Heraus kommt ein ZIP mit einem
-`data/`-Ordner für lassoDBData und der Auswahl als `baukasten.json`. Der Code liegt in
+`data/`-Ordner für die Vorlage und der Auswahl als `baukasten.json`. Der Code liegt in
 `src/baukasten/`.
 
 Unter „Ausprobieren“ lässt sich auch ein vorhandenes Verzeichnis öffnen, die Daten
@@ -67,7 +71,7 @@ Der Token ist ein fein granularer Token nur für das Daten-Repo mit Contents und
 requests (lesen und schreiben) sowie Actions (lesen). Er bleibt nur in der Sitzung im
 Browser. Welches Repo und welcher Ordner bearbeitet werden, legen beim Bauen
 `VITE_DATA_REPO`, `VITE_DATA_PATH` und `VITE_DATA_BRANCH` fest (Vorgabe:
-`nikilachniki/lassoDBData`, `examples/lasso-schwierig`, `main`).
+`nikilachniki/gfbm-werkverzeichnisse`, `examples/lasso-schwierig`, `main`).
 
 Einmalig einzurichten:
 - Im Daten-Repo das Secret `LASSODB_DEPLOY_TOKEN`: ein fein granularer Token für
@@ -77,12 +81,12 @@ Einmalig einzurichten:
   grün sein). Dann kann niemand an der Prüfung vorbei veröffentlichen.
 
 `npm run check:baukasten` prüft, ob die Bausteine noch zu Schema und Kontext in
-lassoDBData passen, und lässt erzeugte Verzeichnisse durch `validate.py` und den
-MeLODy-Export laufen. Außerdem öffnet es `data/` und alle Beispiele aus lassoDBData und
+der Vorlage passen, und lässt erzeugte Verzeichnisse durch `validate.py` und den
+MeLODy-Export laufen. Außerdem öffnet es `data/` und alle Beispiele aus der Vorlage und
 prüft, dass sie unverändert gespeichert Byte für Byte gleich bleiben. `scripts/check-github.ts`
 spielt Öffnen, Speichern, Konflikt, Veröffentlichen und Zusammenführen gegen ein
 nachgebautes GitHub durch. Dafür braucht es Python mit den Paketen aus
-`lassoDBData/scripts/requirements.txt`.
+`scripts/requirements.txt` der Vorlage.
 
 ## Entwicklung
 

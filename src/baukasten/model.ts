@@ -1,5 +1,5 @@
 // Die Bausteine des Werkverzeichnis-Baukastens: Datentypen, Felder und Vorlagen.
-// Die Felder entsprechen lassoDBData/schema/catalogue.schema.json. Ob das noch stimmt,
+// Die Felder entsprechen der Vorlage (gfbm-werkverzeichnisse/schema/catalogue.schema.json). Ob das noch stimmt,
 // prueft scripts/check-baukasten.ts gegen Schema und Kontext.
 
 export const ENTITY_KEYS = [

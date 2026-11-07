@@ -3,12 +3,12 @@
 // 1. Jedes Schemafeld ist ein Baustein und umgekehrt.
 // 2. Die Kennzeichnung MeLODy/Erweiterung stimmt mit dem JSON-LD-Kontext ueberein.
 // 3. Jede Vorlage und ein voll ausgefuelltes Verzeichnis ergeben Daten, die
-//    scripts/validate.py und scripts/export_melody.py aus lassoDBData annehmen.
+//    scripts/validate.py und scripts/export_melody.py aus der Vorlage annehmen.
 // 4. Ein geoeffnetes Verzeichnis bleibt beim Speichern ohne Aenderung Byte fuer Byte
 //    gleich, und eine Aenderung beruehrt nur, was geaendert wurde.
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -31,7 +31,9 @@ import {
 import { configFromPreset, ENTITIES, ENTITY_KEYS, PRESETS, type Config } from '../src/baukasten/model.ts'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const dataRepo = process.env.WV_TEMPLATE_DIR ?? path.resolve(root, '..', 'lassoDBData')
+// Die Vorlage liegt als Geschwisterordner neben diesem Projekt, unter neuem oder altem Namen.
+const templateDir = process.env.WV_TEMPLATE_DIR ?? ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(root, '..', name)).find((folder) => existsSync(folder)) ?? path.resolve(root, '..', 'gfbm-werkverzeichnisse')
+const dataRepo = templateDir
 const readJson = (file: string) => JSON.parse(readFileSync(path.join(dataRepo, file), 'utf8'))
 
 const failures: string[] = []

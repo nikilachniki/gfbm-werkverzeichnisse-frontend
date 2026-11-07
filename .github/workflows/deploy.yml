@@ -2,14 +2,14 @@ name: Build und Deploy nach GitHub Pages
 
 # Baut bei jeder Aenderung an main neu und veroeffentlicht auf GitHub Pages.
 # Die eigentlichen Daten liegen in einem zweiten, getrennten Repository,
-# lassoDBData, siehe docs/entscheidungen.md dort, Abschnitt 1. Dieser
+# der Vorlage gfbm-werkverzeichnisse, siehe docs/entscheidungen.md dort, Abschnitt 1. Dieser
 # Workflow checkt es zusaetzlich aus und uebergibt den Pfad an sync-data.mjs.
 # In der fruehen Phase wird gegen dessen main-Branch gebaut, nicht gegen ein
 # Tag, siehe Abschnitt 1 dort zur Begruendung.
 on:
   push:
     branches: [main]
-  # Erlaubt einen manuellen Rebuild, z.B. nachdem lassoDBData sich geaendert
+  # Erlaubt einen manuellen Rebuild, z.B. nachdem die Vorlage sich geaendert
   # hat, ohne dass hier etwas committet wurde.
   workflow_dispatch:
 
@@ -29,12 +29,12 @@ jobs:
       - name: lassoDB auschecken
         uses: actions/checkout@v4
 
-      - name: lassoDBData auschecken
+      - name: Vorlage auschecken
         uses: actions/checkout@v4
         with:
-          repository: nikilachniki/lassoDBData
+          repository: nikilachniki/gfbm-werkverzeichnisse
           ref: main
-          path: lassoDBData
+          path: vorlage
 
       - name: Node.js einrichten
         uses: actions/setup-node@v4
@@ -47,9 +47,9 @@ jobs:
 
       - name: Bauen
         env:
-          WV_DATA_DIR: ${{ github.workspace }}/lassoDBData/examples/lasso-schwierig
+          WV_DATA_DIR: ${{ github.workspace }}/vorlage/examples/lasso-schwierig
           # Wohin der Baukasten speichert: dasselbe Verzeichnis, das die Seite anzeigt.
-          VITE_DATA_REPO: nikilachniki/lassoDBData
+          VITE_DATA_REPO: nikilachniki/gfbm-werkverzeichnisse
           VITE_DATA_PATH: examples/lasso-schwierig
           VITE_DATA_BRANCH: main
         run: npm run build

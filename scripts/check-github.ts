@@ -2,7 +2,7 @@
 // nachgebautes GitHub im Speicher. Kein Netz, kein echtes Repo. Aufruf ueber
 // npm run check:baukasten.
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles } from '../src/baukasten/generate.ts'
@@ -10,7 +10,9 @@ import { ConflictError, createClient, mergePull, openRemote, publish, pullStatus
 import { configFromPreset } from '../src/baukasten/model.ts'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const dataRepo = process.env.WV_TEMPLATE_DIR ?? path.resolve(root, '..', 'lassoDBData')
+// Die Vorlage liegt als Geschwisterordner neben diesem Projekt, unter neuem oder altem Namen.
+const templateDir = process.env.WV_TEMPLATE_DIR ?? ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(root, '..', name)).find((folder) => existsSync(folder)) ?? path.resolve(root, '..', 'gfbm-werkverzeichnisse')
+const dataRepo = templateDir
 const folder = 'examples/lasso-schwierig'
 
 const failures: string[] = []
