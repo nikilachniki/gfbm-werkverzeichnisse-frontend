@@ -33,6 +33,57 @@ Ein anderes Verzeichnis wählt `WV_DATA_DIR`, in PowerShell etwa:
 $env:WV_DATA_DIR = "..\lassoDBData\examples\beispiel"; npm run dev
 ```
 
+## Baukasten
+
+Der Baukasten liegt in der Verwaltung unter `#/admin`. Die Seite verlinkt sie nicht, die
+Redaktion ruft die Adresse direkt auf; geladen wird der Editor erst dann. Erreichbar ist
+sie nach dem Anmelden mit einem GitHub-Token. Dort stellt man ein
+neues Verzeichnis zusammen: Vorlage wählen (Lasso,
+Le Beau oder leer), Datentypen und Felder an- und abwählen, festlegen, wie Werk und
+Expression verknüpft sind, und das Formular ausprobieren. Heraus kommt ein ZIP mit einem
+`data/`-Ordner für lassoDBData und der Auswahl als `baukasten.json`. Der Code liegt in
+`src/baukasten/`.
+
+Unter „Ausprobieren“ lässt sich auch ein vorhandenes Verzeichnis öffnen, die Daten
+dieser Seite oder ein `data/`-Ordner. Jeder Datensatz behält dabei sein Original; ein Feld
+ändert sich nur, wenn es im Formular geändert wurde. Unbekannte und abgewählte Felder,
+die Reihenfolge und die Schreibweise bleiben erhalten.
+
+### Speichern ins Daten-Repo
+
+Nach dem Anmelden lässt sich unter „Ausprobieren“ das Verzeichnis aus
+dem Daten-Repo öffnen und dorthin speichern (`src/baukasten/github.ts`):
+
+1. **Speichern** ist ein Commit in den eigenen Zweig `redaktion/<login>`, nie auf `main`.
+   Beim nächsten Öffnen geht es dort weiter.
+2. **Veröffentlichen** öffnet einen Pull Request nach `main`. Der Workflow
+   `.github/workflows/pruefen.yml` im Daten-Repo prüft ihn mit `validate.py` und dem
+   MeLODy-Export.
+3. **Zusammenführen** geht nach grüner Prüfung direkt aus dem Editor, als ein Commit.
+   Der Arbeitszweig wird danach gelöscht; nach dem Push auf `main` stößt das Daten-Repo
+   den Neubau dieser Seite an.
+
+Der Token ist ein fein granularer Token nur für das Daten-Repo mit Contents und Pull
+requests (lesen und schreiben) sowie Actions (lesen). Er bleibt nur in der Sitzung im
+Browser. Welches Repo und welcher Ordner bearbeitet werden, legen beim Bauen
+`VITE_DATA_REPO`, `VITE_DATA_PATH` und `VITE_DATA_BRANCH` fest (Vorgabe:
+`nikilachniki/lassoDBData`, `examples/lasso-schwierig`, `main`).
+
+Einmalig einzurichten:
+- Im Daten-Repo das Secret `LASSODB_DEPLOY_TOKEN`: ein fein granularer Token für
+  lassoDB mit Actions (lesen und schreiben). Ohne ihn baut die Seite nach einer
+  Datenänderung nicht von selbst neu.
+- Empfohlen: `main` im Daten-Repo schützen (Pull Request nötig, Prüfung „pruefen“ muss
+  grün sein). Dann kann niemand an der Prüfung vorbei veröffentlichen.
+
+`npm run check:baukasten` prüft, ob die Bausteine noch zu Schema und Kontext in
+lassoDBData passen, und lässt erzeugte Verzeichnisse durch `validate.py` und den
+MeLODy-Export laufen. Außerdem öffnet es `data/` und alle Beispiele aus lassoDBData und
+prüft, dass sie unverändert gespeichert Byte für Byte gleich bleiben. `scripts/check-github.ts`
+spielt Öffnen, Speichern, Konflikt, Veröffentlichen und Zusammenführen gegen ein
+nachgebautes GitHub durch. Dafür braucht es Python mit den Paketen aus
+`lassoDBData/scripts/requirements.txt`.
+
 ## Entwicklung
 
 Voraussetzung ist Node.js, empfohlen die aktuelle LTS-Version.

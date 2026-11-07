@@ -51,6 +51,12 @@ export const theme = createTheme(
     // Ueberschriften sind durchweg fett; so steht das an einer Stelle statt
     // als fontWeight an jeder Ueberschrift. Abstaende bleiben an der Stelle.
     typography: {
+      // Mit der App ausgeliefert (@fontsource), damit keine Anfrage an Google geht.
+      fontFamily: '"Source Sans 3 Variable", "Source Sans 3", "Segoe UI", system-ui, sans-serif',
+      // Source Sans laeuft etwas kleiner als Roboto, daher eine Stufe groesser.
+      fontSize: 15,
+      // Knoepfe und Tabs in normaler Schreibung statt in Versalien.
+      button: { textTransform: 'none', fontWeight: 600 },
       h4: { fontWeight: 700 },
       h6: { fontWeight: 700 },
       subtitle1: { fontWeight: 700 },

@@ -48,6 +48,10 @@ jobs:
       - name: Bauen
         env:
           WV_DATA_DIR: ${{ github.workspace }}/lassoDBData/examples/lasso-schwierig
+          # Wohin der Baukasten speichert: dasselbe Verzeichnis, das die Seite anzeigt.
+          VITE_DATA_REPO: nikilachniki/lassoDBData
+          VITE_DATA_PATH: examples/lasso-schwierig
+          VITE_DATA_BRANCH: main
         run: npm run build
 
       - name: Pages vorbereiten

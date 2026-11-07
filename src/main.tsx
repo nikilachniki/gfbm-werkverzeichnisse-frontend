@@ -1,3 +1,4 @@
+import '@fontsource-variable/source-sans-3'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import CssBaseline from '@mui/material/CssBaseline'
