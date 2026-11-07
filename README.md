@@ -27,7 +27,7 @@ frühere Ordnername `lassoDBData` geht auch):
 
 ```
 IdeaProjects/
-├── lassoDB/
+├── gfbm-werkverzeichnisse-frontend/   (oder lassoDB)
 └── gfbm-werkverzeichnisse/
 ```
 
@@ -74,8 +74,8 @@ Browser. Welches Repo und welcher Ordner bearbeitet werden, legen beim Bauen
 `nikilachniki/gfbm-werkverzeichnisse`, `examples/lasso-schwierig`, `main`).
 
 Einmalig einzurichten:
-- Im Daten-Repo das Secret `LASSODB_DEPLOY_TOKEN`: ein fein granularer Token für
-  lassoDB mit Actions (lesen und schreiben). Ohne ihn baut die Seite nach einer
+- In der Vorlage das Secret `FRONTEND_DEPLOY_TOKEN`: ein fein granularer Token für
+  dieses Repo mit Actions (lesen und schreiben). Ohne ihn baut die Seite nach einer
   Datenänderung nicht von selbst neu.
 - Empfohlen: `main` im Daten-Repo schützen (Pull Request nötig, Prüfung „pruefen“ muss
   grün sein). Dann kann niemand an der Prüfung vorbei veröffentlichen.
@@ -102,9 +102,10 @@ npm run dev
 ## Deployment
 
 Der Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) baut bei
-jedem Push nach `main` und veröffentlicht auf GitHub Pages. Solange die Vorlage nur ein
-Branch ist, läuft er von hier aus nicht. Vor einem Merge nach `main` ist zu entscheiden,
-welches Verzeichnis dort erscheinen soll, denn der Workflow ist auf den Auszug
-`examples/lasso-schwierig` eingestellt.
+jedem Push nach `main` und veröffentlicht auf GitHub Pages unter
+https://nikilachniki.github.io/gfbm-werkverzeichnisse-frontend/. Er zeigt den Auszug
+`examples/lasso-schwierig` aus der Vorlage. Den Pfad leitet er aus dem Repo-Namen ab
+(`WV_BASE` in `vite.config.ts`).
 
-Der Pfad `/lassoDB/` steht in `vite.config.ts` und passt nur zu diesem Repository.
+Projekt-Repos bauen ihre eigene Seite mit
+[.github/workflows/website.yml](.github/workflows/website.yml), siehe README der Vorlage.

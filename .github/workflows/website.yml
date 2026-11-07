@@ -8,7 +8,7 @@ name: Website bauen (gemeinsam)
 #
 #   jobs:
 #     website:
-#       uses: nikilachniki/lassoDB/.github/workflows/website.yml@main
+#       uses: nikilachniki/gfbm-werkverzeichnisse-frontend/.github/workflows/website.yml@main
 #       permissions: { contents: read, pages: write, id-token: write }
 #       with:
 #         data-path: data
@@ -24,7 +24,7 @@ on:
         type: string
         default: data
       website-ref:
-        description: Stand des Website-Codes (Branch oder Tag von nikilachniki/lassoDB)
+        description: Stand des Website-Codes (Branch oder Tag von nikilachniki/gfbm-werkverzeichnisse-frontend)
         type: string
         default: main
 
@@ -40,7 +40,7 @@ jobs:
       - name: Website-Code auschecken
         uses: actions/checkout@v4
         with:
-          repository: nikilachniki/lassoDB
+          repository: nikilachniki/gfbm-werkverzeichnisse-frontend
           ref: ${{ inputs.website-ref }}
           path: website
 
