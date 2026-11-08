@@ -71,11 +71,16 @@ function withStored(fresh: Project): { project: Project; dropped: boolean } {
 }
 
 const CHECK_TEXT: Record<PullStatus['checks'], string> = {
-  none: 'Prüfung startet gleich',
+  none: 'Keine Prüfung gestartet',
   pending: 'Prüfung läuft',
   success: 'Prüfung bestanden',
   failure: 'Prüfung fehlgeschlagen',
 }
+
+// GitHub legt den Lauf erst Sekunden nach dem Pull Request an, und er dauert eine Weile.
+const POLL_MS = 5000
+// Kommt so lange kein Lauf, gibt es vermutlich keinen, etwa ohne Workflow im Repo.
+const START_TIMEOUT_MS = 60000
 
 // Speichern in den Arbeitszweig, Veroeffentlichen als Pull Request, Zusammenfuehren.
 function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project; remote: RemoteState; onSaved: (draft: Draft) => void; onReopen: () => Promise<void> }) {
@@ -86,9 +91,16 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [loadedPull, setPull] = useState<PullStatus | null>(null)
+  // Der Stand, fuer den vergeblich auf eine Pruefung gewartet wurde
+  const [noRunFor, setNoRunFor] = useState('')
+  const [merged, setMerged] = useState(false)
   const client = useMemo(() => createClient(token), [token])
-  // Ohne Arbeitszweig gibt es keinen offenen Pull Request.
-  const pull = remote.onBranch ? loadedPull : null
+  // Ohne Arbeitszweig gibt es keinen offenen Pull Request. Ein Ergebnis zu einem aelteren
+  // Stand sagt nichts ueber den jetzigen, etwa direkt nach erneutem Speichern.
+  const pull = !remote.onBranch || !loadedPull ? null : loadedPull.head === remote.head ? loadedPull : { ...loadedPull, checks: 'none' as const, mergeable: null }
+  // Bei einer Kollision startet GitHub keine Pruefung, darauf zu warten waere vergeblich.
+  const waitingForStart = pull?.checks === 'none' && pull.mergeable !== false && noRunFor !== remote.head
+  const unsettled = pull !== null && (waitingForStart || pull.checks === 'pending' || pull.mergeable === null)
 
   const run = async (task: () => Promise<void>) => {
     setBusy(true)
@@ -105,13 +117,48 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
   const refresh = () => run(async () => setPull(await pullStatus(client, remote)))
 
   useEffect(() => {
-    if (remote.onBranch) {
-      pullStatus(client, remote).then(setPull, () => setPull(null))
+    if (!remote.onBranch) {
+      return undefined
+    }
+    let active = true
+    pullStatus(client, remote).then(
+      (next) => active && setPull(next),
+      () => active && setPull(null),
+    )
+    return () => {
+      active = false
     }
   }, [client, remote])
 
+  useEffect(() => {
+    if (!unsettled || busy) {
+      return undefined
+    }
+    let active = true
+    const timer = window.setTimeout(() => {
+      pullStatus(client, remote).then(
+        (next) => active && setPull(next),
+        // Bei einem Aussetzer von GitHub bleibt der letzte Stand stehen, und es geht weiter.
+        () => active && setPull((current) => current && { ...current }),
+      )
+    }, POLL_MS)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [unsettled, busy, client, remote, loadedPull])
+
+  useEffect(() => {
+    if (!waitingForStart) {
+      return undefined
+    }
+    const timer = window.setTimeout(() => setNoRunFor(remote.head), START_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [waitingForStart, remote.head])
+
   const save = () =>
     run(async () => {
+      setMerged(false)
       const files: Record<string, string> = { ...buildFiles(config, draft), [CONFIG_FILE]: configText(config) }
       const text = message.trim() || `Bearbeitung: ${changed.join(', ')}`
       const state = await saveRemote(client, remote, Object.fromEntries(changed.map((file) => [file, files[file]])), text)
@@ -134,6 +181,7 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
         return
       }
       await mergePull(client, remote, pull.number)
+      setMerged(true)
       await onReopen()
       setPull(null)
     })
@@ -161,14 +209,21 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
               <Button color="inherit" size="small" disabled={busy} onClick={refresh}>
                 Aktualisieren
               </Button>
-              <Button color="inherit" size="small" disabled={busy || pull.checks === 'pending' || pull.mergeable === false} onClick={merge}>
+              {/* Zusammenfuehren laedt das Verzeichnis neu, Ungespeichertes ginge dabei verloren. */}
+              <Button color="inherit" size="small" disabled={busy || waitingForStart || pull.checks === 'pending' || pull.mergeable === false || changed.length > 0} onClick={merge}>
                 Zusammenführen
               </Button>
             </Stack>
           }
         >
-          <ExternalLink href={pull.url}>Pull Request #{pull.number}</ExternalLink>: {CHECK_TEXT[pull.checks]}
+          <ExternalLink href={pull.url}>Pull Request #{pull.number}</ExternalLink>: {waitingForStart ? 'Prüfung startet gleich' : CHECK_TEXT[pull.checks]}
           {pull.mergeable === false ? '. Kollidiert mit inzwischen Veröffentlichtem.' : '.'}
+          {changed.length > 0 && ' Noch nicht Gespeichertes bitte zuerst speichern. Es kommt dann in diesen Pull Request und wird mitgeprüft.'}
+        </Alert>
+      )}
+      {merged && (
+        <Alert severity="success" onClose={() => setMerged(false)}>
+          Zusammengeführt. Die öffentliche Website wird jetzt neu gebaut. Bis die Änderungen dort sichtbar sind, können einige Minuten vergehen, danach hilft notfalls neu laden.
         </Alert>
       )}
       {error && <Alert severity="error">{error}</Alert>}
@@ -194,6 +249,16 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' } }}>
           <TextField size="small" label="Name des Verzeichnisses" value={config.catalogue.label} onChange={(event) => setCatalogue({ label: event.target.value })} />
           <TextField size="small" label="Kürzel" helperText="Gilt nur für neue Werke, vorhandene Nummern bleiben." value={config.catalogue.abbreviation} onChange={(event) => setCatalogue({ abbreviation: event.target.value })} />
+          <TextField
+            size="small"
+            multiline
+            minRows={3}
+            label="Info-Text"
+            helperText="Erscheint auf der Website unter „Über dieses Projekt“."
+            value={config.catalogue.description ?? ''}
+            onChange={(event) => setCatalogue({ description: event.target.value })}
+            sx={{ gridColumn: '1 / -1' }}
+          />
         </Box>
       </Box>
       <Box component="section">

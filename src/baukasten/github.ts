@@ -216,6 +216,8 @@ export async function saveRemote(client: Client, state: RemoteState, files: Reco
 export interface PullStatus {
   number: number
   url: string
+  // Der Commit, zu dem checks gehoert
+  head: string
   // null: GitHub rechnet noch
   mergeable: boolean | null
   checks: 'none' | 'pending' | 'success' | 'failure'
@@ -253,7 +255,7 @@ export async function pullStatus(client: Client, state: RemoteState): Promise<Pu
         : list.every((run) => run.conclusion === 'success' || run.conclusion === 'skipped')
           ? 'success'
           : 'failure'
-  return { number: pull.number, url: pull.html_url, mergeable: pull.mergeable, checks }
+  return { number: pull.number, url: pull.html_url, head: pull.head.sha, mergeable: pull.mergeable, checks }
 }
 
 export async function publish(client: Client, state: RemoteState, title: string, body: string): Promise<PullStatus> {

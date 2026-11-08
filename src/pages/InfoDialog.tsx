@@ -35,6 +35,11 @@ export function InfoDialog({ open, onClose }: InfoDialogProps) {
               {composer ? `Werke von ${composer}. ` : ''}
               {works.length} Werke, zitiert nach {catalogue.catalogueAbbreviation}.
             </Typography>
+            {catalogue.description && (
+              <Typography variant="body2" sx={{ mt: 1.5, whiteSpace: 'pre-line' }}>
+                {catalogue.description}
+              </Typography>
+            )}
           </Box>
 
           <Divider />

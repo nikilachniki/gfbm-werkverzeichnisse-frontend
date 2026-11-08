@@ -173,6 +173,7 @@ check(fileOn('redaktion/redakteurin', 'works.json').includes('(geändert)'), 'Ei
 // 5. Veroeffentlichen: ein Pull Request, die Pruefung laeuft, dann Zusammenfuehren.
 const status = await publish(client, saved, 'Titel geändert', 'Aus dem Baukasten')
 check(status.number === 1 && status.checks === 'none', 'Veröffentlichen legt keinen Pull Request an')
+check(status.head === saved.head, 'Der Status nennt nicht den geprüften Stand')
 check((await publish(client, saved, 'nochmal', '')).number === 1, 'Zweites Veröffentlichen legt einen zweiten Pull Request an')
 runs.set(saved.head, [{ status: 'in_progress', conclusion: null }])
 check((await pullStatus(client, saved))?.checks === 'pending', 'Laufende Prüfung wird nicht erkannt')
@@ -187,6 +188,18 @@ check(!refs.has('redaktion/redakteurin'), 'Der Arbeitszweig bleibt nach dem Zusa
 // 6. Danach beginnt die naechste Arbeit wieder bei main.
 const fresh = await openRemote(client, target, login)
 check(!fresh.state.onBranch && fresh.files['works.json'].includes('(geändert)'), 'Nach dem Zusammenführen beginnt die Arbeit nicht bei main')
+
+// Der Info-Text landet in catalog.json, kommt beim Oeffnen zurueck und laesst sich leeren.
+const infoDraft = draftFromFiles(fresh.files, 'Info', fresh.state)
+const infoConfig = configForDraft(configFromPreset('blank'), infoDraft)
+const infoFile = buildFiles({ ...infoConfig, catalogue: { ...infoConfig.catalogue, description: ' Zwei\nZeilen ' } }, infoDraft)['catalog.json']
+check(JSON.parse(infoFile).description === 'Zwei\nZeilen', 'Der Info-Text fehlt in catalog.json')
+const infoOpened = draftFromFiles({ ...fresh.files, 'catalog.json': infoFile }, 'Info', fresh.state)
+const infoLoaded = configForDraft(configFromPreset('blank'), infoOpened)
+check(infoLoaded.catalogue.description === 'Zwei\nZeilen', 'Der Info-Text kommt beim Öffnen nicht zurück')
+const catalogWith = (description: string | undefined) => JSON.parse(buildFiles({ ...infoLoaded, catalogue: { ...infoLoaded.catalogue, description } }, infoOpened)['catalog.json'])
+check(!('description' in catalogWith('')), 'Ein geleerter Info-Text bleibt in catalog.json')
+check(catalogWith(undefined).description === 'Zwei\nZeilen', 'Ein älterer Browser-Stand löscht den Info-Text')
 
 // 7. Einrichtung abschliessen: Ohne baukasten.json auf main ist das Verzeichnis nicht
 // eingerichtet. Das Abschliessen schreibt sie direkt nach main und laesst Daten in Ruhe.

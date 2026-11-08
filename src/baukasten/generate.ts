@@ -502,6 +502,13 @@ export function buildCollections(config: Config, draft: Draft): BuiltFiles {
         ...(composer ? { composer: composer['@id'] } : {}),
         catalogueAbbreviation: abbreviation || 'WV',
       }
+  // Ein geleertes Feld entfernt den Text, ein nie angefasstes laesst ihn stehen.
+  const description = config.catalogue.description?.trim()
+  if (description) {
+    catalog.description = description
+  } else if (description !== undefined) {
+    delete catalog.description
+  }
   return { catalog, collections }
 }
 
@@ -627,6 +634,7 @@ export function configForDraft(config: Config, draft: Draft): Config {
     label: (catalog.label as string) ?? '',
     abbreviation: (catalog.catalogueAbbreviation as string) ?? '',
     composer: composer ? [composer.familyName, composer.givenName].filter(Boolean).join(', ') : '',
+    description: (catalog.description as string) ?? '',
   }
   const usage = usageOf(draft)
   for (const entity of ENTITIES) {
@@ -686,7 +694,7 @@ export const entityUse = (usage: Usage, key: EntityKey): number =>
   usage.entities[key] + ENTITIES.filter((entity) => entity.requires === key).reduce((sum, entity) => sum + entityUse(usage, entity.key), 0)
 
 // Was das Abschliessen der Einrichtung schreibt: baukasten.json und nur die Dateien, die
-// sich durch Name, Kuerzel oder Komponist*in aendern. Eintraege vom Ausprobieren gehoeren
+// sich durch Name, Kuerzel, Komponist*in oder Info-Text aendern. Eintraege vom Ausprobieren gehoeren
 // nicht dazu. Was im Repo schon Daten enthaelt, bleibt in der Einrichtung eingeschaltet.
 export function setupFiles(wizard: Config, files: Record<string, string>, remote: RemoteState): Record<string, string> {
   const draft = draftFromFiles(files, 'Einrichtung', remote)

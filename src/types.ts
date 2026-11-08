@@ -165,6 +165,7 @@ export interface RawCatalogue {
   label: string
   catalogueAbbreviation: string
   composer?: string
+  description?: string
 }
 
 export interface Collection<T> {

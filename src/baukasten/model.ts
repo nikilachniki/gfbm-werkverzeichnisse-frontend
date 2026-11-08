@@ -400,7 +400,8 @@ export type ExpressionMode = 'auto' | 'manual'
 export interface Config {
   presetId: PresetId
   // Das Kuerzel ist zugleich die Liste, nach der neue Werke nummeriert werden.
-  catalogue: { label: string; abbreviation: string; composer: string }
+  // description fehlt in aelteren Staenden im Browser und solange nichts eingetragen wurde.
+  catalogue: { label: string; abbreviation: string; composer: string; description?: string }
   entities: Record<EntityKey, boolean>
   // Schluessel: "works.genres" und "manifestations.contents.voices"
   fields: Record<string, boolean>

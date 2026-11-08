@@ -145,6 +145,16 @@ function PresetStep({ config, onSelect, onCatalogue }: { config: Config; onSelec
             value={config.catalogue.abbreviation}
             onChange={(event) => onCatalogue({ abbreviation: event.target.value })}
           />
+          <TextField
+            size="small"
+            multiline
+            minRows={3}
+            label="Info-Text"
+            helperText="Erscheint auf der Website unter „Über dieses Projekt“. Lässt sich später in der Verwaltung ändern."
+            value={config.catalogue.description ?? ''}
+            onChange={(event) => onCatalogue({ description: event.target.value })}
+            sx={{ gridColumn: '1 / -1' }}
+          />
         </Box>
       </Paper>
     </Stack>
