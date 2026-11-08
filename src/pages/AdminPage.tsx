@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import AppBar from '@mui/material/AppBar'
@@ -18,10 +18,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { AuthProvider } from '../auth.tsx'
 import { useAuth } from '../authContext.ts'
-import { DEFAULT_TARGET } from '../baukasten/github.ts'
+import { createClient, DEFAULT_TARGET, readSetup } from '../baukasten/github.ts'
 import { catalogue } from '../catalogueData.ts'
 import { ExternalLink } from '../components/ExternalLink.tsx'
 import { BaukastenPage } from './BaukastenPage.tsx'
+import { EditorPage } from './EditorPage.tsx'
 
 // Die Verwaltung: eigene Ansicht mit eigenem Kopf, erreichbar nur nach dem Anmelden.
 // Was man dort darf, entscheidet GitHub ueber die Rechte am Daten-Repo.
@@ -123,13 +124,68 @@ export function AdminPage() {
   )
 }
 
+// Liegt auf main eine baukasten.json, ist das Verzeichnis eingerichtet: dann die Bearbeitung
+// der Daten, sonst die Einrichtung.
+function ProjectAdmin() {
+  const { token } = useAuth()
+  const client = useMemo(() => createClient(token), [token])
+  // undefined: wird noch geladen; null: noch nicht eingerichtet
+  const [setup, setSetup] = useState<string | null | undefined>(undefined)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    readSetup(client, DEFAULT_TARGET).then(
+      (text) => {
+        if (active) {
+          setSetup(text)
+          setError('')
+        }
+      },
+      (reason: Error) => active && setError(reason.message),
+    )
+    return () => {
+      active = false
+    }
+  }, [client, attempt])
+
+  if (typeof setup === 'string') {
+    return <EditorPage setup={setup} />
+  }
+  if (setup === null) {
+    return <BaukastenPage onFinished={setSetup} />
+  }
+  return (
+    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, p: 2 }}>
+      {error ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => setAttempt(attempt + 1)}>
+              Erneut versuchen
+            </Button>
+          }
+        >
+          {DEFAULT_TARGET.owner}/{DEFAULT_TARGET.repo} ließ sich nicht lesen. {error}
+        </Alert>
+      ) : (
+        <>
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Verzeichnis wird geladen …</Typography>
+        </>
+      )}
+    </Box>
+  )
+}
+
 function AdminArea() {
   const { status } = useAuth()
   return (
     <>
       <AdminHeader />
       {status === 'signedIn' ? (
-        <BaukastenPage />
+        <ProjectAdmin />
       ) : status === 'checking' ? (
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
           <CircularProgress size={24} />

@@ -41,25 +41,29 @@ $env:WV_DATA_DIR = "..\gfbm-werkverzeichnisse\examples\beispiel"; npm run dev
 
 Der Baukasten liegt in der Verwaltung unter `#/admin`. Die Seite verlinkt sie nicht, die
 Redaktion ruft die Adresse direkt auf; geladen wird der Editor erst dann. Erreichbar ist
-sie nach dem Anmelden mit einem GitHub-Token. Dort stellt man ein
-neues Verzeichnis zusammen: Vorlage wählen (Lasso,
-Le Beau oder leer), Datentypen und Felder an- und abwählen, festlegen, wie Werk und
-Expression verknüpft sind, und das Formular ausprobieren. Heraus kommt ein ZIP mit einem
-`data/`-Ordner für die Vorlage und der Auswahl als `baukasten.json`. Der Code liegt in
-`src/baukasten/`.
+sie nach dem Anmelden mit einem GitHub-Token. Was dort erscheint, entscheidet die
+`baukasten.json` auf `main` im Datenordner:
 
-Unter „Ausprobieren“ lässt sich auch ein vorhandenes Verzeichnis öffnen, die Daten
-dieser Seite oder ein `data/`-Ordner. Jeder Datensatz behält dabei sein Original; ein Feld
-ändert sich nur, wenn es im Formular geändert wurde. Unbekannte und abgewählte Felder,
-die Reihenfolge und die Schreibweise bleiben erhalten.
+- **Ohne sie läuft die Einrichtung:** Vorlage wählen (Lasso, Le Beau oder leer), Datentypen
+  und Felder an- und abwählen, festlegen, wie Werk und Expression verknüpft sind, und das
+  Formular ausprobieren. Einträge vom Ausprobieren bleiben im Browser. **Abschließen**
+  schreibt die Auswahl als `baukasten.json` samt Name, Kürzel und Komponist*in direkt nach
+  `main`.
+- **Mit ihr öffnet sich die Bearbeitung** der echten Daten aus dem Repo. Jeder Datensatz
+  behält dabei sein Original; ein Feld ändert sich nur, wenn es im Formular geändert wurde.
+  Unbekannte und abgewählte Felder, die Reihenfolge und die Schreibweise bleiben erhalten.
+  Im Bereich **Einrichtung** lassen sich Name, Kürzel, Bausteine und Felder nachträglich
+  ändern. Einschalten geht immer, abschalten nur, solange keine Daten betroffen sind.
+
+Der Code liegt in `src/baukasten/`. Entwürfe und Anmeldung liegen im Browser je Projekt
+getrennt, weil alle Projekte eines Kontos dieselbe Adresse `<owner>.github.io` teilen.
 
 ### Speichern ins Daten-Repo
 
-Nach dem Anmelden lässt sich unter „Ausprobieren“ das Verzeichnis aus
-dem Daten-Repo öffnen und dorthin speichern (`src/baukasten/github.ts`):
+In der Bearbeitung geht es so ins Daten-Repo (`src/baukasten/github.ts`):
 
-1. **Speichern** ist ein Commit in den eigenen Zweig `redaktion/<login>`, nie auf `main`.
-   Beim nächsten Öffnen geht es dort weiter.
+1. **Nach GitHub speichern** ist ein Commit in den eigenen Zweig `redaktion/<login>`, nie
+   auf `main`. Beim nächsten Öffnen geht es dort weiter.
 2. **Veröffentlichen** öffnet einen Pull Request nach `main`. Der Workflow
    `.github/workflows/pruefen.yml` im Daten-Repo prüft ihn mit `validate.py` und dem
    MeLODy-Export.

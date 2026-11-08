@@ -6,9 +6,9 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AuthContext, type Auth } from './authContext.ts'
-import { createClient, whoAmI } from './baukasten/github.ts'
+import { createClient, projectKey, whoAmI } from './baukasten/github.ts'
 
-const TOKEN_KEY = 'wv-github-token'
+const TOKEN_KEY = projectKey('wv-github-token')
 
 function readToken(): string {
   try {

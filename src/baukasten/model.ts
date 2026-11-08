@@ -546,6 +546,27 @@ export function isFieldActive(config: Config, entity: EntityKey, field: FieldDef
   return Boolean(field.required || config.fields[`${entity}.${field.key}`])
 }
 
+// Schaltet einen Baustein. Abhaengige folgen: Ohne Quelle kein Exemplar, ein Exemplar
+// braucht seine Quelle.
+export function withEntity(config: Config, key: EntityKey, on: boolean): Config {
+  const entities = { ...config.entities, [key]: on }
+  const follow = (changed: EntityKey) => {
+    for (const entity of ENTITIES) {
+      if (!on && entity.requires === changed && entities[entity.key]) {
+        entities[entity.key] = false
+        follow(entity.key)
+      }
+    }
+    const required = entityOf(changed).requires
+    if (on && required && !entities[required]) {
+      entities[required] = true
+      follow(required)
+    }
+  }
+  follow(key)
+  return { ...config, entities }
+}
+
 export const isSubfieldActive = (config: Config, entity: EntityKey, field: Part, part: Part): boolean =>
   !part.toggle || Boolean(config.fields[`${entity}.${field.key}.${part.key}`])
 

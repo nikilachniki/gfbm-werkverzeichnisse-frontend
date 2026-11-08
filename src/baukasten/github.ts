@@ -8,10 +8,14 @@
 // - Wer Schreibrechte hat, fuehrt ihn nach gruener Pruefung zusammen; danach entfaellt
 //   der Zweig, und die naechste Arbeit beginnt wieder bei main.
 //
+// Ausnahme ist das einmalige "Abschliessen" der Einrichtung: Es schreibt direkt nach main,
+// denn ob ein Verzeichnis eingerichtet ist, entscheidet die baukasten.json auf main.
+//
 // Die Rechte prueft GitHub. Der Token ist ein fein granularer Token nur fuer das Daten-Repo
 // mit: Contents (lesen und schreiben), Pull requests (lesen und schreiben), Actions (lesen).
 
-import { CONFIG_FILE, DATA_FILES } from './generate.ts'
+import { CONFIG_FILE, DATA_FILES, setupFiles } from './generate.ts'
+import type { Config } from './model.ts'
 
 export interface RemoteTarget {
   owner: string
@@ -55,6 +59,10 @@ export const DEFAULT_TARGET: RemoteTarget = {
   base: (env.VITE_DATA_BRANCH as string | undefined) ?? 'main',
 }
 
+// Alle Projekte eines Kontos liegen unter derselben Adresse (<owner>.github.io) und teilen
+// sich damit den Browser-Speicher. Jeder Eintrag traegt deshalb das Projekt im Namen.
+export const projectKey = (name: string, target: RemoteTarget = DEFAULT_TARGET): string => `${name}:${target.owner}/${target.repo}/${target.path}`
+
 export const workBranch = (login: string): string => `redaktion/${login.toLowerCase()}`
 
 type Fetch = typeof fetch
@@ -68,6 +76,8 @@ export function createClient(token: string, fetchImpl: Fetch = fetch, base = 'ht
   const send = async (method: string, url: string, body?: unknown, accept = 'application/vnd.github+json') => {
     const response = await fetchImpl(`${base}${url}`, {
       method,
+      // Der Browser wuerde GitHubs Antworten sonst eine Minute lang wiederverwenden.
+      cache: 'no-store',
       headers: {
         Accept: accept,
         Authorization: `Bearer ${token}`,
@@ -115,28 +125,67 @@ async function branchHead(client: Client, target: RemoteTarget, branch: string):
   }
 }
 
-// Oeffnet den eigenen Arbeitszweig, wenn es ihn gibt, sonst den veroeffentlichten Stand.
-// config: baukasten.json, die gemeinsame Einrichtung, falls es sie schon gibt.
-export async function openRemote(client: Client, target: RemoteTarget, login: string): Promise<{ files: Record<string, string>; config?: string; state: RemoteState }> {
-  const branch = workBranch(login)
-  const ownHead = await branchHead(client, target, branch)
-  const head = ownHead ?? (await branchHead(client, target, target.base))
+async function publishedHead(client: Client, target: RemoteTarget): Promise<string> {
+  const head = await branchHead(client, target, target.base)
   if (!head) {
     throw new GitHubError(`Der Zweig ${target.base} fehlt in ${target.owner}/${target.repo}.`, 404)
   }
+  return head
+}
+
+async function readFiles(client: Client, target: RemoteTarget, head: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {}
   for (const file of DATA_FILES) {
     files[file] = await client.text(`${repoUrl(target)}/contents/${filePath(target, file)}?ref=${head}`)
   }
-  let config: string | undefined
+  return files
+}
+
+// baukasten.json, die gemeinsame Einrichtung, falls es sie auf diesem Stand schon gibt.
+async function readConfig(client: Client, target: RemoteTarget, head: string): Promise<string | undefined> {
   try {
-    config = (await client.text(`${repoUrl(target)}/contents/${filePath(target, CONFIG_FILE)}?ref=${head}`)).replace(/\r\n/g, '\n')
+    return (await client.text(`${repoUrl(target)}/contents/${filePath(target, CONFIG_FILE)}?ref=${head}`)).replace(/\r\n/g, '\n')
   } catch (error) {
-    if (!(error instanceof GitHubError && error.status === 404)) {
-      throw error
+    if (error instanceof GitHubError && error.status === 404) {
+      return undefined
     }
+    throw error
   }
+}
+
+// Oeffnet den eigenen Arbeitszweig, wenn es ihn gibt, sonst den veroeffentlichten Stand.
+export async function openRemote(client: Client, target: RemoteTarget, login: string): Promise<{ files: Record<string, string>; config?: string; state: RemoteState }> {
+  const branch = workBranch(login)
+  const ownHead = await branchHead(client, target, branch)
+  const head = ownHead ?? (await publishedHead(client, target))
+  const [files, config] = await Promise.all([readFiles(client, target, head), readConfig(client, target, head)])
   return { files, config, state: { target, login, branch, head, onBranch: ownHead !== null } }
+}
+
+// Die abgeschlossene Einrichtung auf dem veroeffentlichten Stand; null, solange sie fehlt.
+export async function readSetup(client: Client, target: RemoteTarget): Promise<string | null> {
+  return (await readConfig(client, target, await publishedHead(client, target))) ?? null
+}
+
+// Schliesst die Einrichtung ab: ein Commit auf main mit baukasten.json und dem, was sich
+// dadurch am Verzeichnis aendert. Vorhandene Daten bleiben unberuehrt. Gibt die
+// gespeicherte Einrichtung zurueck.
+export async function finishSetup(client: Client, target: RemoteTarget, login: string, config: Config): Promise<string> {
+  const head = await publishedHead(client, target)
+  if ((await readConfig(client, target, head)) !== undefined) {
+    throw new ConflictError('Dieses Verzeichnis ist bereits eingerichtet. Bitte die Seite neu laden.', 409)
+  }
+  const state: RemoteState = { target, login, branch: target.base, head, onBranch: true }
+  const files = setupFiles(config, await readFiles(client, target, head), state)
+  try {
+    await saveRemote(client, state, files, 'Einrichtung abgeschlossen')
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      throw new ConflictError(`${target.base} hat sich gerade geändert. Nichts wurde überschrieben, bitte noch einmal abschließen.`, error.status)
+    }
+    throw error
+  }
+  return files[CONFIG_FILE]
 }
 
 // Ein Commit mit allen geaenderten Dateien auf den Arbeitszweig. Hat sich der Zweig

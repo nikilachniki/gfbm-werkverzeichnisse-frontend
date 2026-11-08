@@ -628,37 +628,71 @@ export function configForDraft(config: Config, draft: Draft): Config {
     abbreviation: (catalog.catalogueAbbreviation as string) ?? '',
     composer: composer ? [composer.familyName, composer.givenName].filter(Boolean).join(', ') : '',
   }
+  const usage = usageOf(draft)
+  for (const entity of ENTITIES) {
+    if (usage.entities[entity.key] > 0) {
+      next.entities[entity.key] = true
+      if (entity.requires) {
+        next.entities[entity.requires] = true
+      }
+    }
+  }
+  for (const key of Object.keys(usage.fields)) {
+    next.fields[key] = true
+  }
+  return next
+}
+
+// Was im Verzeichnis schon Daten enthaelt, jeweils mit der Zahl der Datensaetze.
+// Schluessel der Felder wie in Config.fields: "works.genres", "manifestations.contents.voices".
+export interface Usage {
+  entities: Record<EntityKey, number>
+  fields: Record<string, number>
+}
+
+export function usageOf(draft: Draft): Usage {
   const recordsOf = (entity: EntityKey): Values[] =>
     entity === 'works'
       ? draft.works.map((work) => work.values)
       : entity === 'expressions'
         ? draft.works.flatMap((work) => work.expressions.map((expression) => expression.values))
         : draft.records[entity]
+  const usage: Usage = { entities: {} as Usage['entities'], fields: {} }
   for (const entity of ENTITIES) {
     const records = recordsOf(entity.key)
-    if (records.length > 0) {
-      next.entities[entity.key] = true
-      if (entity.requires) {
-        next.entities[entity.requires] = true
-      }
-    }
+    usage.entities[entity.key] = records.length
     for (const field of entity.fields) {
       const used = records.filter((record) => record[field.key] !== undefined)
       if (used.length === 0) {
         continue
       }
-      next.fields[`${entity.key}.${field.key}`] = true
+      usage.fields[`${entity.key}.${field.key}`] = used.length
       if (field.input.kind === 'rows' || field.input.kind === 'object') {
         for (const part of field.input.parts.filter((candidate) => candidate.toggle)) {
-          const rows = used.flatMap((record) => (Array.isArray(record[field.key]) ? (record[field.key] as Values[]) : [record[field.key] as Values]))
-          if (rows.some((row) => row?.[part.key] !== undefined)) {
-            next.fields[`${entity.key}.${field.key}.${part.key}`] = true
+          const rowsOf = (record: Values) => (Array.isArray(record[field.key]) ? (record[field.key] as Values[]) : [record[field.key] as Values])
+          const withPart = used.filter((record) => rowsOf(record).some((row) => row?.[part.key] !== undefined))
+          if (withPart.length > 0) {
+            usage.fields[`${entity.key}.${field.key}.${part.key}`] = withPart.length
           }
         }
       }
     }
   }
-  return next
+  return usage
+}
+
+// Wie viele Datensaetze das Abschalten eines Bausteins treffen wuerde, abhaengige eingerechnet.
+export const entityUse = (usage: Usage, key: EntityKey): number =>
+  usage.entities[key] + ENTITIES.filter((entity) => entity.requires === key).reduce((sum, entity) => sum + entityUse(usage, entity.key), 0)
+
+// Was das Abschliessen der Einrichtung schreibt: baukasten.json und nur die Dateien, die
+// sich durch Name, Kuerzel oder Komponist*in aendern. Eintraege vom Ausprobieren gehoeren
+// nicht dazu. Was im Repo schon Daten enthaelt, bleibt in der Einrichtung eingeschaltet.
+export function setupFiles(wizard: Config, files: Record<string, string>, remote: RemoteState): Record<string, string> {
+  const draft = draftFromFiles(files, 'Einrichtung', remote)
+  const config = { ...configForDraft(wizard, draft), catalogue: wizard.catalogue }
+  const built: Record<string, string> = { ...buildFiles(config, draft), [CONFIG_FILE]: configText(config) }
+  return Object.fromEntries(changedFiles(config, draft).map((file) => [file, built[file]]))
 }
 
 export interface Check {

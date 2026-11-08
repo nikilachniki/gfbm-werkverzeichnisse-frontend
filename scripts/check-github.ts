@@ -5,9 +5,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles } from '../src/baukasten/generate.ts'
-import { ConflictError, createClient, mergePull, openRemote, publish, pullStatus, saveRemote, whoAmI, type RemoteTarget } from '../src/baukasten/github.ts'
-import { configFromPreset } from '../src/baukasten/model.ts'
+import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles, entityUse, setupFiles, usageOf } from '../src/baukasten/generate.ts'
+import { ConflictError, createClient, finishSetup, mergePull, openRemote, projectKey, publish, pullStatus, readSetup, saveRemote, whoAmI, type RemoteTarget } from '../src/baukasten/github.ts'
+import { configFromPreset, ENTITIES, withEntity } from '../src/baukasten/model.ts'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // Die Vorlage liegt als Geschwisterordner neben diesem Projekt, unter neuem oder altem Namen.
@@ -55,7 +55,8 @@ const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => 
   match = route.match(/^\/contents\/(.+)$/)
   if (match) {
     const tree = trees.get(commits.get(url.searchParams.get('ref')!)!.tree)!
-    return new Response(tree[decodeURIComponent(match[1])], { status: 200 })
+    const content = tree[decodeURIComponent(match[1])]
+    return content === undefined ? json(404, { message: 'Not Found' }) : new Response(content, { status: 200 })
   }
   match = route.match(/^\/git\/commits\/(.+)$/)
   if (match) {
@@ -187,8 +188,75 @@ check(!refs.has('redaktion/redakteurin'), 'Der Arbeitszweig bleibt nach dem Zusa
 const fresh = await openRemote(client, target, login)
 check(!fresh.state.onBranch && fresh.files['works.json'].includes('(geändert)'), 'Nach dem Zusammenführen beginnt die Arbeit nicht bei main')
 
+// 7. Einrichtung abschliessen: Ohne baukasten.json auf main ist das Verzeichnis nicht
+// eingerichtet. Das Abschliessen schreibt sie direkt nach main und laesst Daten in Ruhe.
+const mainTree = { ...trees.get(commits.get(refs.get('main')!)!.tree)! }
+delete mainTree[`${folder}/${CONFIG_FILE}`]
+trees.set('ohne-einrichtung', mainTree)
+commits.set('c-ohne-einrichtung', { tree: 'ohne-einrichtung', parents: [refs.get('main')!] })
+refs.set('main', 'c-ohne-einrichtung')
+check((await readSetup(client, target)) === null, 'Ein Verzeichnis ohne baukasten.json gilt als eingerichtet')
+
+const worksBefore = fileOn('main', 'works.json')
+const wizard = { ...configFromPreset('lasso'), catalogue: { label: 'Neuer Name', abbreviation: 'NN', composer: 'Lasso, Orlando di' } }
+const setupText = await finishSetup(client, target, login, wizard)
+check((await readSetup(client, target)) === setupText, 'Nach dem Abschließen fehlt die Einrichtung auf main')
+check(fileOn('main', 'works.json') === worksBefore, 'Das Abschließen hat Daten verändert')
+check((JSON.parse(fileOn('main', 'catalog.json')) as { label: string }).label === 'Neuer Name', 'Das Abschließen übernimmt den Namen nicht')
+
+let finishedTwice = false
+try {
+  await finishSetup(client, target, login, wizard)
+} catch (error) {
+  finishedTwice = error instanceof ConflictError
+}
+check(finishedTwice, 'Zweites Abschließen meldet keinen Konflikt')
+
+// Nach dem Oeffnen eines eingerichteten Verzeichnisses ist nichts geaendert.
+const finished = await openRemote(client, target, login)
+const finishedDraft = draftFromFiles(finished.files, folder, finished.state, finished.config)
+const finishedConfig = configForDraft(configFromText(finished.config!), finishedDraft)
+finishedDraft.source!.config = configText(finishedConfig)
+check(changedFiles(finishedConfig, finishedDraft).length === 0, `Frisch eingerichtet ist schon etwas geändert: ${changedFiles(finishedConfig, finishedDraft).join(', ')}`)
+
+// 7b. Einrichtung nachtraeglich aendern: Daten bleiben Byte fuer Byte, nur baukasten.json aendert sich.
+const usage = usageOf(finishedDraft)
+const everythingOn = structuredClone(finishedConfig)
+for (const entity of ENTITIES) {
+  everythingOn.entities[entity.key] = true
+  for (const field of entity.fields) {
+    everythingOn.fields[`${entity.key}.${field.key}`] = true
+  }
+}
+check(JSON.stringify(changedFiles(everythingOn, finishedDraft)) === JSON.stringify([CONFIG_FILE]), `Alles einschalten ändert: ${changedFiles(everythingOn, finishedDraft).join(', ')}`)
+const unused = ENTITIES.flatMap((entity) => entity.fields.filter((field) => !field.required && !usage.fields[`${entity.key}.${field.key}`]).map((field) => `${entity.key}.${field.key}`))
+check(unused.length > 0, 'Für die Prüfung fehlt ein unbenutztes Feld')
+const fewer = { ...finishedConfig, fields: { ...finishedConfig.fields, ...Object.fromEntries(unused.map((key) => [key, false])) } }
+const fewerChanged = changedFiles(fewer, finishedDraft)
+check(fewerChanged.every((file) => file === CONFIG_FILE), `Unbenutzte Felder abschalten ändert: ${fewerChanged.join(', ')}`)
+
+// Gesperrt ist genau, was das Oeffnen wieder einschalten wuerde.
+const reopened = configForDraft({ ...fewer, entities: Object.fromEntries(ENTITIES.map((entity) => [entity.key, false])) as typeof fewer.entities }, finishedDraft)
+for (const [key] of Object.entries(usage.fields)) {
+  check(Boolean(reopened.fields[key]), `${key} ist gesperrt, wird beim Öffnen aber nicht eingeschaltet`)
+}
+for (const entity of ENTITIES) {
+  check(usage.entities[entity.key] === 0 || reopened.entities[entity.key], `${entity.key} hat Daten, wird beim Öffnen aber nicht eingeschaltet`)
+}
+// Quellen mit Exemplaren lassen sich nicht abschalten, und das Schalten folgt den Abhaengigkeiten.
+check(entityUse(usage, 'manifestations') >= usage.entities.manifestations + usage.entities.items, 'Exemplare zählen nicht zu ihren Quellen')
+check(!withEntity(finishedConfig, 'manifestations', false).entities.items, 'Ohne Quellen bleiben Exemplare eingeschaltet')
+
+// 8. Abschliessen auf der leeren Vorlage: nur Name, Komponist*in und Einrichtung aendern sich.
+const starter = Object.fromEntries(DATA_FILES.map((file) => [file, readFileSync(path.join(dataRepo, 'data', file), 'utf8')]))
+const starterFiles = Object.keys(setupFiles(wizard, starter, finished.state)).sort()
+check(JSON.stringify(starterFiles) === JSON.stringify([CONFIG_FILE, 'catalog.json', 'persons.json']), `Abschließen der leeren Vorlage schreibt: ${starterFiles.join(', ')}`)
+
+// 9. Der Browser-Speicher ist je Projekt getrennt.
+check(projectKey('wv', target) !== projectKey('wv', { ...target, repo: 'anderes' }), 'Zwei Projekte teilen sich den Browser-Speicher')
+
 if (failures.length > 0) {
   console.error(`\n${failures.length} Fehler im GitHub-Ablauf:\n${failures.map((failure) => `- ${failure}`).join('\n')}`)
   process.exit(1)
 }
-console.log('GitHub-Ablauf: Öffnen, Speichern, Konflikt, Veröffentlichen, Zusammenführen stimmen.')
+console.log('GitHub-Ablauf: Öffnen, Speichern, Konflikt, Veröffentlichen, Zusammenführen, Einrichtung stimmen.')
