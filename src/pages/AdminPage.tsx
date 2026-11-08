@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import AppBar from '@mui/material/AppBar'
@@ -19,7 +19,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import { AuthProvider } from '../auth.tsx'
 import { useAuth } from '../authContext.ts'
 import { createClient, DEFAULT_TARGET, readSetup } from '../baukasten/github.ts'
-import { catalogue } from '../catalogueData.ts'
+import { configFromText } from '../baukasten/generate.ts'
 import { ExternalLink } from '../components/ExternalLink.tsx'
 import { BaukastenPage } from './BaukastenPage.tsx'
 import { EditorPage } from './EditorPage.tsx'
@@ -27,7 +27,9 @@ import { EditorPage } from './EditorPage.tsx'
 // Die Verwaltung: eigene Ansicht mit eigenem Kopf, erreichbar nur nach dem Anmelden.
 // Was man dort darf, entscheidet GitHub ueber die Rechte am Daten-Repo.
 
-function AdminHeader() {
+const SETUP_TITLE = 'Werkverzeichnis Baukasten'
+
+function AdminHeader({ title }: { title: string }) {
   const { status, login, signOut } = useAuth()
   return (
     <AppBar sx={{ flexShrink: 0 }}>
@@ -38,8 +40,8 @@ function AdminHeader() {
           <Typography variant="overline" component="p" sx={{ lineHeight: 1.2, opacity: 0.7, display: 'block' }}>
             Verwaltung
           </Typography>
-          <Typography variant="h6" component="h1" noWrap title={catalogue.label} sx={{ lineHeight: 1.2 }}>
-            {catalogue.label}
+          <Typography variant="h6" component="h1" noWrap title={title} sx={{ lineHeight: 1.2, minHeight: '1.2em' }}>
+            {title}
           </Typography>
         </Box>
         <Box sx={{ flexGrow: 1 }} />
@@ -126,7 +128,7 @@ export function AdminPage() {
 
 // Liegt auf main eine baukasten.json, ist das Verzeichnis eingerichtet: dann die Bearbeitung
 // der Daten, sonst die Einrichtung.
-function ProjectAdmin() {
+function ProjectAdmin({ onName }: { onName: (name: string) => void }) {
   const { token } = useAuth()
   const client = useMemo(() => createClient(token), [token])
   // undefined: wird noch geladen; null: noch nicht eingerichtet
@@ -134,12 +136,20 @@ function ProjectAdmin() {
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
+  const applySetup = useCallback(
+    (text: string | null) => {
+      setSetup(text)
+      onName(text === null ? '' : configFromText(text).catalogue.label)
+    },
+    [onName],
+  )
+
   useEffect(() => {
     let active = true
     readSetup(client, DEFAULT_TARGET).then(
       (text) => {
         if (active) {
-          setSetup(text)
+          applySetup(text)
           setError('')
         }
       },
@@ -148,13 +158,13 @@ function ProjectAdmin() {
     return () => {
       active = false
     }
-  }, [client, attempt])
+  }, [client, attempt, applySetup])
 
   if (typeof setup === 'string') {
-    return <EditorPage setup={setup} />
+    return <EditorPage setup={setup} onName={onName} />
   }
   if (setup === null) {
-    return <BaukastenPage onFinished={setSetup} />
+    return <BaukastenPage onFinished={applySetup} />
   }
   return (
     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, p: 2 }}>
@@ -181,11 +191,15 @@ function ProjectAdmin() {
 
 function AdminArea() {
   const { status } = useAuth()
+  // null: noch unbekannt; leer: die Einrichtung laeuft noch
+  const [name, setName] = useState<string | null>(null)
+  // Waehrend des Ladens bleibt der Kopf leer, damit kein falscher Titel aufblitzt.
+  const title = status !== 'signedIn' ? SETUP_TITLE : name === null ? '' : name || SETUP_TITLE
   return (
     <>
-      <AdminHeader />
+      <AdminHeader title={title} />
       {status === 'signedIn' ? (
-        <ProjectAdmin />
+        <ProjectAdmin onName={setName} />
       ) : status === 'checking' ? (
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
           <CircularProgress size={24} />

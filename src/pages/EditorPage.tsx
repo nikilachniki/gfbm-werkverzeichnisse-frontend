@@ -215,7 +215,7 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
   )
 }
 
-export function EditorPage({ setup }: { setup: string }) {
+export function EditorPage({ setup, onName }: { setup: string; onName: (name: string) => void }) {
   const { token, login } = useAuth()
   const client = useMemo(() => createClient(token), [token])
   const [project, setProject] = useState<Project | null>(null)
@@ -252,6 +252,14 @@ export function EditorPage({ setup }: { setup: string }) {
       writeStored(project)
     }
   }, [project])
+
+  // Der Kopf zeigt den Namen, der im Repo steht, nicht den gerade getippten.
+  const savedName = project?.draft.source?.catalog.label as string | undefined
+  useEffect(() => {
+    if (savedName !== undefined) {
+      onName(savedName)
+    }
+  }, [savedName, onName])
 
   if (!project) {
     return (
