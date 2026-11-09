@@ -2,6 +2,7 @@
 // auch die Verknuepfung von Werk und Expression. Reine Funktionen ohne Oberflaeche, damit
 // scripts/check-baukasten.ts sie gegen validate.py und den MeLODy-Export pruefen kann.
 
+import { indexDocument, parseQuery, scoreDocument, type SearchDocument } from '../search/textSearch.ts'
 import {
   configFromPreset,
   ENTITIES,
@@ -836,6 +837,112 @@ export function missingRequired(config: Config, entity: EntityDef, values: Value
     .filter((field) => field.required && !field.derived && field.input.kind !== 'auto')
     .filter((field) => clean(config, field.input, values[field.key]) === undefined)
     .map((field) => field.label)
+}
+
+export const isManuscript = (source: Values): boolean => ((source.classifications as string[] | undefined) ?? []).includes('terms:Manuscript')
+
+export const itemsOfSource = (draft: Draft, sourceId: string): Values[] => draft.records.items.filter((item) => item.exemplifies === sourceId)
+
+// Legt das Exemplar einer Quelle an oder schreibt ein vorhandenes fort. Eine Handschrift
+// gibt es nur einmal, deshalb entsteht ihr Exemplar zusammen mit ihr.
+export function withSourceItem(draft: Draft, sourceId: string, item: Values): Draft {
+  const list = draft.records.items
+  const id = (item['@id'] as string | undefined) ?? uniqueId('items', sourceId.slice('manifestations:'.length), list.map((other) => other['@id'] as string))
+  const record = { ...item, '@id': id, exemplifies: sourceId }
+  const items = list.some((other) => other['@id'] === id) ? list.map((other) => (other['@id'] === id ? record : other)) : [...list, record]
+  return { ...draft, records: { ...draft.records, items } }
+}
+
+// Was die Listen der Verwaltung durchsuchen: alles, woran man einen Datensatz erkennt.
+const SEARCH_KEYS = ['titles', 'identifiers', 'label', 'name', 'familyName', 'givenName', 'alternateNames', 'abbreviation', 'shelfmark', 'formerShelfmark', 'sourceType']
+
+function textsIn(value: unknown): string[] {
+  if (typeof value === 'number') {
+    return [String(value)]
+  }
+  if (typeof value === 'string') {
+    return value.startsWith('terms:') ? [] : [value]
+  }
+  return value && typeof value === 'object' ? Object.values(value).flatMap(textsIn) : []
+}
+
+export function recordSearchIndex(entity: EntityKey, id: string, values: Values): SearchDocument {
+  return indexDocument([
+    { text: displayName(entity, values), weight: 3 },
+    { text: SEARCH_KEYS.flatMap((key) => textsIn(values[key])).join(' '), weight: 2 },
+    { text: id },
+  ])
+}
+
+// Die Treffer, beste zuerst; ohne Suchwort alles in der gewohnten Reihenfolge.
+export function searchEntries<T extends { document: SearchDocument }>(entries: T[], text: string): T[] {
+  const query = parseQuery(text)
+  if (!query) {
+    return entries
+  }
+  return entries
+    .map((entry) => ({ entry, score: scoreDocument(entry.document, query) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ entry }) => entry)
+}
+
+export interface RecordChanges {
+  label: string
+  added: number
+  changed: number
+  removed: number
+}
+
+// Die geoeffneten Datensaetze als Text, je Quelle nur einmal geparst.
+const openedRecords = new WeakMap<object, Map<string, Map<string, string>>>()
+
+function recordsOpened(source: NonNullable<Draft['source']>): Map<string, Map<string, string>> {
+  let opened = openedRecords.get(source)
+  if (!opened) {
+    opened = new Map()
+    for (const entity of ENTITIES) {
+      const entries = (JSON.parse(source.files[entity.file]) as { entries?: Values[] }).entries ?? []
+      opened.set(entity.key, new Map(entries.map((record) => [record['@id'] as string, JSON.stringify(record)])))
+    }
+    openedRecords.set(source, opened)
+  }
+  return opened
+}
+
+// Was gegenueber dem zuletzt geoeffneten oder gespeicherten Stand anders ist, je Datentyp.
+export function changedRecords(config: Config, draft: Draft): RecordChanges[] {
+  const source = draft.source
+  if (!source) {
+    return []
+  }
+  const { catalog, collections } = buildCollections(config, draft)
+  const opened = recordsOpened(source)
+  const result: RecordChanges[] = []
+  for (const entity of ENTITIES) {
+    const before = opened.get(entity.key)!
+    let added = 0
+    let changed = 0
+    let kept = 0
+    for (const record of collections[entity.key]) {
+      const old = before.get(record['@id'] as string)
+      if (old === undefined) {
+        added += 1
+      } else {
+        kept += 1
+        changed += old === JSON.stringify(record) ? 0 : 1
+      }
+    }
+    const removed = before.size - kept
+    if (added + changed + removed > 0) {
+      result.push({ label: entity.plural, added, changed, removed })
+    }
+  }
+  const catalogChanged = `${JSON.stringify(catalog, null, 2)}\n` !== source.files['catalog.json']
+  if (catalogChanged || (source.remote && configText(config) !== source.config)) {
+    result.push({ label: 'Einstellungen', added: 0, changed: 1, removed: 0 })
+  }
+  return result
 }
 
 // Das Ein-Klick-Heilmittel: Jedes Werk ohne Expression bekommt eine.

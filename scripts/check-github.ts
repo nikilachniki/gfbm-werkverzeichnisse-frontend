@@ -5,7 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles, entityUse, setupFiles, usageOf } from '../src/baukasten/generate.ts'
+import { buildCollections, buildFiles, changedFiles, changedRecords, CONFIG_FILE, configForDraft, configFromText, configText, DATA_FILES, draftFromFiles, entityUse, isManuscript, itemsOfSource, recordSearchIndex, runChecks, searchEntries, setupFiles, usageOf, withSourceItem } from '../src/baukasten/generate.ts'
 import { ConflictError, createClient, finishSetup, mergePull, openRemote, projectKey, publish, pullStatus, readSetup, saveRemote, whoAmI, type RemoteTarget } from '../src/baukasten/github.ts'
 import { configFromPreset, ENTITIES, withEntity } from '../src/baukasten/model.ts'
 
@@ -200,6 +200,43 @@ check(infoLoaded.catalogue.description === 'Zwei\nZeilen', 'Der Info-Text kommt 
 const catalogWith = (description: string | undefined) => JSON.parse(buildFiles({ ...infoLoaded, catalogue: { ...infoLoaded.catalogue, description } }, infoOpened)['catalog.json'])
 check(!('description' in catalogWith('')), 'Ein geleerter Info-Text bleibt in catalog.json')
 check(catalogWith(undefined).description === 'Zwei\nZeilen', 'Ein älterer Browser-Stand löscht den Info-Text')
+
+// Eine neue Handschrift bekommt genau ein Exemplar, das sich danach fortschreiben laesst.
+const handschriftConfig = withEntity(withEntity(infoLoaded, 'manifestations', true), 'items', true)
+const handschrift = { '@id': 'manifestations:hs-test', titles: [{ text: { '@none': 'Handschrift' } }], classifications: ['terms:Manuscript'] }
+const mitHandschrift = { ...infoOpened, records: { ...infoOpened.records, manifestations: [...infoOpened.records.manifestations, handschrift] } }
+const zaehle = (draft: typeof mitHandschrift) => itemsOfSource(draft, handschrift['@id'])
+const angelegt = withSourceItem(mitHandschrift, handschrift['@id'], { shelfmark: 'Mus. 1' })
+check(zaehle(angelegt).length === 1 && isManuscript(handschrift), 'Die Handschrift bekommt kein Exemplar')
+const exemplar = buildCollections(handschriftConfig, angelegt).collections.items.find((item) => item.exemplifies === handschrift['@id'])
+check(exemplar?.label === 'Mus. 1' && exemplar['@type'] === 'Item', 'Das Exemplar der Handschrift ist unvollständig')
+check(!runChecks(handschriftConfig, angelegt).some((entry) => entry.level === 'error' && entry.text.includes('hs-test')), 'Das Exemplar der Handschrift wird als Fehler gemeldet')
+const fortgeschrieben = withSourceItem(angelegt, handschrift['@id'], { ...zaehle(angelegt)[0], shelfmark: 'Mus. 2' })
+check(zaehle(fortgeschrieben).length === 1 && zaehle(fortgeschrieben)[0].shelfmark === 'Mus. 2', 'Bearbeiten legt ein zweites Exemplar an')
+
+// Der Zaehler nennt genau das Veraenderte, je Datentyp. Die geoeffnete Einrichtung setzt
+// die Verwaltung beim Oeffnen, hier von Hand.
+infoDraft.source!.config = configText(infoConfig)
+const summe = (rows: ReturnType<typeof changedRecords>) => rows.reduce((sum, row) => sum + row.added + row.changed + row.removed, 0)
+check(summe(changedRecords(infoConfig, infoDraft)) === 0, 'Ein unverändertes Verzeichnis meldet Änderungen')
+const zeile = (rows: ReturnType<typeof changedRecords>, label: string) => rows.find((row) => row.label === label)
+const neueQuellen = changedRecords(handschriftConfig, angelegt)
+check(zeile(neueQuellen, 'Quellen')?.added === 1 && zeile(neueQuellen, 'Exemplare')?.added === 1, 'Neue Datensätze werden nicht gezählt')
+const ohneWerk = { ...infoDraft, works: infoDraft.works.slice(1) }
+check((zeile(changedRecords(infoConfig, ohneWerk), 'Werke')?.removed ?? 0) === 1, 'Gelöschte Datensätze werden nicht gezählt')
+const anderesWerk = { ...infoDraft, works: infoDraft.works.map((work, index) => (index === 0 ? { ...work, values: { ...work.values, titles: [{ text: { '@none': 'Ganz neuer Titel' } }] } } : work)) }
+check((zeile(changedRecords(infoConfig, anderesWerk), 'Werke')?.changed ?? 0) === 1, 'Geänderte Datensätze werden nicht gezählt')
+check(zeile(changedRecords({ ...infoConfig, catalogue: { ...infoConfig.catalogue, description: 'Neu' } }, infoDraft), 'Einstellungen')?.changed === 1, 'Geänderte Einstellungen werden nicht gezählt')
+
+// Die Listen finden auch Schreibvarianten und Nummern.
+const liste = [
+  { id: 'works:74', document: recordSearchIndex('works', 'works:74', { titles: [{ text: { la: 'Gratia plena' } }], identifiers: [{ list: 'LV', value: '74' }] }) },
+  { id: 'works:174', document: recordSearchIndex('works', 'works:174', { titles: [{ text: { fr: 'Élle s’en va' } }], identifiers: [{ list: 'LV', value: '174' }] }) },
+]
+check(searchEntries(liste, '').length === 2, 'Ohne Suchwort fehlen Einträge')
+check(searchEntries(liste, 'gracia')[0]?.id === 'works:74', 'Die Suche findet keine Schreibvariante')
+check(searchEntries(liste, 'elle')[0]?.id === 'works:174', 'Die Suche ignoriert Akzente nicht')
+check(searchEntries(liste, 'LV 74').map((entry) => entry.id).join() === 'works:74', 'Die Suche nach einer Nummer trifft auch andere')
 
 // 7. Einrichtung abschliessen: Ohne baukasten.json auf main ist das Verzeichnis nicht
 // eingerichtet. Das Abschliessen schreibt sie direkt nach main und laesst Daten in Ruhe.

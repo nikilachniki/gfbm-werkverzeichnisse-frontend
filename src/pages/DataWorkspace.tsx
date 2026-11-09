@@ -20,12 +20,17 @@ import {
   buildCollections,
   createMissingExpressions,
   displayName,
+  isManuscript,
+  itemsOfSource,
   missingRequired,
   newExpression,
   newWork,
   recordFromName,
+  recordSearchIndex,
   runChecks,
+  searchEntries,
   uniqueId,
+  withSourceItem,
   type Check,
   type Draft,
   type ExpressionDraft,
@@ -40,7 +45,11 @@ import { ENTITIES, entityOf, isEntityActive, isFieldActive, type Config, type En
 
 type Editing =
   | { entity: 'works'; work: WorkDraft; isNew: boolean }
-  | { entity: PlainEntity; record: Values; isNew: boolean }
+  // item: das mitbearbeitete Exemplar einer Quelle; ohne @id entsteht es neu
+  | { entity: PlainEntity; record: Values; isNew: boolean; item?: Values }
+
+// Lange Listen kommen portionsweise, sonst stockt bei grossen Verzeichnissen das Tippen.
+const LIST_PAGE = 200
 
 // Der Entwurf samt dem Datensatz, der gerade bearbeitet wird. Daraus entsteht die Live-Vorschau.
 function withEditing(draft: Draft, editing: Editing | null): Draft {
@@ -57,13 +66,26 @@ function withEditing(draft: Draft, editing: Editing | null): Draft {
   const list = draft.records[editing.entity]
   const id = recordId(editing.entity, editing.record, list)
   const record = { ...editing.record, '@id': id }
-  return {
+  const next = {
     ...draft,
     records: {
       ...draft.records,
       [editing.entity]: editing.isNew ? [...list, record] : list.map((other) => (other['@id'] === id ? record : other)),
     },
   }
+  return hasItemForm(editing) ? withSourceItem(next, id, editing.item!) : next
+}
+
+// Nur eine Handschrift bekommt ihr Exemplar im selben Formular.
+const hasItemForm = (editing: Editing): boolean => editing.entity === 'manifestations' && Boolean(editing.item) && isManuscript(editing.record)
+
+// Bei mehreren Exemplaren waere unklar, welches gemeint ist; die bleiben bei "Exemplare".
+function itemToEdit(config: Config, draft: Draft, sourceId: string): Values | undefined {
+  const items = itemsOfSource(draft, sourceId)
+  if (!isEntityActive(config, 'items') || items.length > 1) {
+    return undefined
+  }
+  return items.length === 1 ? structuredClone(items[0]) : {}
 }
 
 function recordId(entity: PlainEntity, record: Values, list: Values[]): string {
@@ -100,6 +122,23 @@ function FieldStack({ entity, values, config, onChange, context, omit = [] }: { 
         )
       })}
     </Stack>
+  )
+}
+
+function ManuscriptItem({ item, count, config, context, onChange }: { item?: Values; count: number; config: Config; context: EditorContext; onChange: (next: Values) => void }) {
+  if (!item) {
+    return count > 1 ? <Alert severity="info">Diese Handschrift hat {count} Exemplare. Sie werden unter „Exemplare“ bearbeitet.</Alert> : null
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="subtitle1" component="h4" sx={{ mb: 1.5 }}>
+        Exemplar
+      </Typography>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        {item['@id'] ? 'Das Exemplar dieser Handschrift lässt sich hier mitbearbeiten.' : 'Zu dieser Handschrift wird beim Übernehmen automatisch ein Exemplar angelegt.'}
+      </Alert>
+      <FieldStack entity={entityOf('items')} values={item} config={config} context={context} onChange={onChange} omit={['label', 'exemplifies']} />
+    </Paper>
   )
 }
 
@@ -218,7 +257,8 @@ function ResultPanel({ config, draft, editing, onFix }: { config: Config; draft:
       ]
     }
     const id = recordId(editing.entity, editing.record, draft.records[editing.entity])
-    return [{ title: entityOf(editing.entity).file, records: collections[editing.entity].filter((record) => record['@id'] === id) }]
+    const own = { title: entityOf(editing.entity).file, records: collections[editing.entity].filter((record) => record['@id'] === id) }
+    return hasItemForm(editing) ? [own, { title: 'items.json', records: collections.items.filter((record) => record.exemplifies === id) }] : [own]
   }, [editing, draft, collections])
 
   const selectedEntity = tab === 'aktuell' ? null : (ENTITIES.find((entity) => entity.key === tab) ?? null)
@@ -269,24 +309,42 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
   const entities = ENTITIES.filter((entity) => entity.key !== 'expressions' && isEntityActive(config, entity.key))
   const [selected, setSelected] = useState<EntityKey>('works')
   const [openForm, setEditing] = useState<Editing | null>(null)
+  // Was gerade nebenbei passiert ist; link fuehrt zu den Exemplaren.
+  const [notice, setNotice] = useState<{ text: string; link: boolean } | null>(null)
   // Ein Formular gilt nur, solange sein Datentyp eingeschaltet ist.
   const editing = openForm && entities.some((entity) => entity.key === openForm.entity) ? openForm : null
   const current = entities.find((entity) => entity.key === selected) ?? entities[0]
 
-  const list: { id: string; label: string }[] =
-    current.key === 'works'
-      ? draft.works.map((work) => ({ id: work.id, label: displayName('works', work.values) || work.id }))
-      : draft.records[current.key as PlainEntity].map((record) => ({ id: record['@id'] as string, label: displayName(current.key, record) || (record['@id'] as string) }))
+  const [query, setQuery] = useState('')
+  const [limit, setLimit] = useState(LIST_PAGE)
+
+  const currentKey = current.key
+  const list = useMemo(() => {
+    const entry = (id: string, values: Values) => ({ id, label: displayName(currentKey, values) || id, document: recordSearchIndex(currentKey, id, values) })
+    return currentKey === 'works' ? draft.works.map((work) => entry(work.id, work.values)) : draft.records[currentKey as PlainEntity].map((record) => entry(record['@id'] as string, record))
+  }, [currentKey, draft])
+  const found = useMemo(() => searchEntries(list, query), [list, query])
+  const shown = found.slice(0, limit)
+
+  const showType = (value: EntityKey) => {
+    setSelected(value)
+    setEditing(null)
+    setNotice(null)
+    setQuery('')
+    setLimit(LIST_PAGE)
+  }
 
   const startNew = () => {
+    setNotice(null)
     if (current.key === 'works') {
       setEditing({ entity: 'works', work: newWork(config), isNew: true })
     } else {
-      setEditing({ entity: current.key as PlainEntity, record: {}, isNew: true })
+      setEditing({ entity: current.key as PlainEntity, record: {}, isNew: true, ...(current.key === 'manifestations' && isEntityActive(config, 'items') ? { item: {} } : {}) })
     }
   }
 
   const open = (id: string) => {
+    setNotice(null)
     if (current.key === 'works') {
       const work = draft.works.find((other) => other.id === id)
       if (work) {
@@ -295,7 +353,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
     } else {
       const record = draft.records[current.key as PlainEntity].find((other) => other['@id'] === id)
       if (record) {
-        setEditing({ entity: current.key as PlainEntity, record: structuredClone(record), isNew: false })
+        setEditing({ entity: current.key as PlainEntity, record: structuredClone(record), isNew: false, ...(current.key === 'manifestations' ? { item: itemToEdit(config, draft, id) } : {}) })
       }
     }
   }
@@ -308,6 +366,10 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
 
   const save = () => {
     onDraft(withEditing(draft, editing))
+    if (editing && editing.entity !== 'works' && hasItemForm(editing) && !editing.item!['@id']) {
+      const shelfmark = (editing.item!.shelfmark as string | undefined)?.trim()
+      setNotice({ text: `Exemplar ${shelfmark ? `„${shelfmark}“ ` : ''}wurde automatisch angelegt.`, link: true })
+    }
     setEditing(null)
   }
 
@@ -319,7 +381,13 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
       onDraft({ ...draft, works: draft.works.filter((work) => work.id !== editing.work.id) })
     } else {
       const entity = editing.entity
-      onDraft({ ...draft, records: { ...draft.records, [entity]: draft.records[entity].filter((record) => record['@id'] !== editing.record['@id']) } })
+      const records = { ...draft.records, [entity]: draft.records[entity].filter((record) => record['@id'] !== editing.record['@id']) }
+      // Das Exemplar einer Handschrift geht mit ihr, sonst bliebe ein Verweis ins Leere.
+      if (hasItemForm(editing) && editing.item!['@id']) {
+        records.items = records.items.filter((item) => item['@id'] !== editing.item!['@id'])
+        setNotice({ text: 'Das Exemplar der Handschrift wurde mit gelöscht.', link: false })
+      }
+      onDraft({ ...draft, records })
     }
     setEditing(null)
   }
@@ -344,10 +412,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
       <Stack spacing={2} sx={{ minWidth: 0 }}>
         <Tabs
           value={current.key}
-          onChange={(_, value: EntityKey) => {
-            setSelected(value)
-            setEditing(null)
-          }}
+          onChange={(_, value: EntityKey) => showType(value)}
           variant="scrollable"
           scrollButtons="auto"
           aria-label="Datentypen"
@@ -357,6 +422,17 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
           ))}
         </Tabs>
 
+        {notice && (
+          <Alert severity="success" onClose={() => setNotice(null)}>
+            {notice.text}
+            {notice.link && (
+              <Button color="inherit" size="small" sx={{ ml: 1 }} onClick={() => showType('items')}>
+                Exemplare anzeigen
+              </Button>
+            )}
+          </Alert>
+        )}
+
         {editing ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
@@ -365,7 +441,18 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
             {editing.entity === 'works' ? (
               <WorkForm work={editing.work} config={config} context={context} onChange={(work) => setEditing({ ...editing, work })} />
             ) : (
-              <FieldStack entity={current} values={editing.record} config={config} context={context} onChange={(record) => setEditing({ ...editing, record })} />
+              <Stack spacing={3}>
+                <FieldStack entity={current} values={editing.record} config={config} context={context} onChange={(record) => setEditing({ ...editing, record })} />
+                {editing.entity === 'manifestations' && isManuscript(editing.record) && (
+                  <ManuscriptItem
+                    item={editing.item}
+                    count={itemsOfSource(draft, editing.record['@id'] as string).length}
+                    config={config}
+                    context={context}
+                    onChange={(item) => setEditing({ ...editing, item })}
+                  />
+                )}
+              </Stack>
             )}
             <Stack direction="row" spacing={1} sx={{ mt: 3, alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
               <Button variant="contained" disabled={missing.length > 0} onClick={save}>
@@ -388,7 +475,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
               <Typography variant="subtitle1" component="h3">
-                {current.plural} ({list.length})
+                {current.plural} ({query.trim() ? `${found.length} von ${list.length}` : list.length})
               </Typography>
               <Stack direction="row" spacing={1}>
                 {onSample && isEmpty && (
@@ -401,14 +488,41 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
                 </Button>
               </Stack>
             </Stack>
+            {list.length > 0 && (
+              <TextField
+                size="small"
+                fullWidth
+                type="search"
+                label={`${current.plural} suchen`}
+                placeholder="Titel, Nummer, Name oder Signatur"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setLimit(LIST_PAGE)
+                }}
+                sx={{ mt: 2 }}
+              />
+            )}
             {list.length > 0 ? (
-              <List dense disablePadding sx={{ mt: 1 }}>
-                {list.map((entry) => (
-                  <ListItemButton key={entry.id} onClick={() => open(entry.id)} sx={{ borderRadius: 1 }}>
-                    <ListItemText primary={entry.label} secondary={entry.id} />
-                  </ListItemButton>
-                ))}
-              </List>
+              <>
+                {shown.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                    Nichts gefunden.
+                  </Typography>
+                )}
+                <List dense disablePadding sx={{ mt: 1 }}>
+                  {shown.map((entry) => (
+                    <ListItemButton key={entry.id} onClick={() => open(entry.id)} sx={{ borderRadius: 1 }}>
+                      <ListItemText primary={entry.label} secondary={entry.id} />
+                    </ListItemButton>
+                  ))}
+                </List>
+                {found.length > shown.length && (
+                  <Button size="small" sx={{ mt: 1 }} onClick={() => setLimit(limit + LIST_PAGE)}>
+                    Weitere anzeigen ({found.length - shown.length})
+                  </Button>
+                )}
+              </>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {current.key === 'works' ? `Noch keine Werke.${showFiles ? ' Lege eines an und beobachte, was rechts passiert.' : ''}` : `Noch nichts angelegt. ${current.blurb}`}

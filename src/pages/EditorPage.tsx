@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Alert from '@mui/material/Alert'
+import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -13,7 +14,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useAuth } from '../authContext.ts'
 import { ExternalLink } from '../components/ExternalLink.tsx'
-import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, createMissingExpressions, draftFromFiles, runChecks, usageOf, type Draft } from '../baukasten/generate.ts'
+import { buildFiles, changedFiles, changedRecords, CONFIG_FILE, configForDraft, configFromText, configText, createMissingExpressions, draftFromFiles, runChecks, usageOf, type Draft } from '../baukasten/generate.ts'
 import { createClient, DEFAULT_TARGET, mergePull, openRemote, projectKey, publish, pullStatus, saveRemote, type PullStatus, type RemoteState } from '../baukasten/github.ts'
 import { withEntity, type Config } from '../baukasten/model.ts'
 import { CheckList, DataWorkspace } from './DataWorkspace.tsx'
@@ -278,6 +279,34 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
 
 type EditorTab = 'daten' | 'einrichtung' | 'export'
 
+// Kopf der Spalte: der rote Zaehler nennt, wie viele Datensaetze noch nicht gespeichert sind.
+function SaveHeader({ config, draft, remote }: { config: Config; draft: Draft; remote: RemoteState }) {
+  const changes = useMemo(() => changedRecords(config, draft), [config, draft])
+  const total = changes.reduce((sum, row) => sum + row.added + row.changed + row.removed, 0)
+  return (
+    <>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Typography variant="h6" component="h2">
+          Änderungen speichern
+        </Typography>
+        {total > 0 && <Badge badgeContent={total} max={999} color="error" aria-label={`${total} noch nicht gespeichert`} sx={{ '& .MuiBadge-badge': { position: 'static', transform: 'none' } }} />}
+      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        {remote.target.owner}/{remote.target.repo}. {total === 0 ? 'Alles gespeichert.' : 'Noch nicht gespeichert:'}
+      </Typography>
+      {total > 0 && (
+        <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5, typography: 'body2', color: 'text.secondary' }}>
+          {changes.map((row) => (
+            <li key={row.label}>
+              {row.label}: {[row.added && `${row.added} neu`, row.changed && `${row.changed} geändert`, row.removed && `${row.removed} gelöscht`].filter(Boolean).join(', ')}
+            </li>
+          ))}
+        </Box>
+      )}
+    </>
+  )
+}
+
 // Nur was beim Speichern zaehlt. Es gilt das Uebernommene, ein offenes Formular noch nicht.
 function SaveChecks({ config, draft, onFix }: { config: Config; draft: Draft; onFix: () => void }) {
   const errors = useMemo(() => runChecks(config, draft).filter((check) => check.level === 'error'), [config, draft])
@@ -381,7 +410,6 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
 
   const { config, draft } = project
   const remote = draft.source!.remote!
-  const changed = changedFiles(config, draft)
   const setDraft = (next: Draft) => setProject({ config, draft: next })
 
   return (
@@ -389,12 +417,7 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '360px minmax(0, 1fr)' }, alignItems: 'flex-start' }}>
           <Paper variant="outlined" component="aside" sx={{ p: 2, minWidth: 0, position: { lg: 'sticky' }, top: { lg: 16 }, maxHeight: { lg: 'calc(100vh - 112px)' }, overflow: { lg: 'auto' } }}>
-            <Typography variant="h6" component="h2">
-              Änderungen speichern
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {remote.target.owner}/{remote.target.repo}. {changed.length > 0 ? `Noch nicht gespeichert: ${changed.join(', ')}.` : 'Alles gespeichert.'}
-            </Typography>
+            <SaveHeader config={config} draft={draft} remote={remote} />
             {dropped && (
               <Alert severity="warning" sx={{ mt: 1.5 }}>
                 Das Verzeichnis hat sich inzwischen geändert. Nicht gespeicherte Änderungen aus diesem Browser wurden deshalb verworfen.

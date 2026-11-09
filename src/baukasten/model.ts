@@ -246,7 +246,7 @@ export const ENTITIES: EntityDef[] = [
     chain: true,
     fields: [
       { key: 'titles', label: 'Titel', origin: 'melody', required: true, help: 'Name des Drucks oder Bezeichnung der Handschrift.', input: titles(false, 1) },
-      { key: 'classifications', label: 'Art', origin: 'melody', help: 'Druck oder Handschrift.', input: { kind: 'terms', options: [{ value: 'terms:Print', label: 'Druck' }, { value: 'terms:Manuscript', label: 'Handschrift' }] } },
+      { key: 'classifications', label: 'Art', origin: 'melody', help: 'Druck oder Handschrift. Eine Handschrift bekommt automatisch ein Exemplar.', input: { kind: 'terms', options: [{ value: 'terms:Print', label: 'Druck' }, { value: 'terms:Manuscript', label: 'Handschrift' }] } },
       { key: 'identifiers', label: 'Sigle und Katalognummern', origin: 'melody', help: 'Etwa RISM, Sigle oder Plattennummer.', input: identifiersInput },
       {
         key: 'contents',
