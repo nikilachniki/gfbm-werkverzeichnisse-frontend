@@ -708,6 +708,8 @@ export interface Check {
   text: string
   // Der Fehler laesst sich mit einem Klick beheben.
   fix?: 'createExpressions'
+  // Was im Einzelnen dahintersteht, fuer die ausfuehrliche Ansicht
+  details?: string[]
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -776,8 +778,8 @@ export function runChecks(config: Config, draft: Draft): Check[] {
     }
   }
 
-  let textOnly = 0
-  let withoutLanguage = 0
+  const textOnly = new Map<string, number>()
+  const withoutLanguage: string[] = []
   for (const entity of ENTITIES) {
     for (const record of collections[entity.key]) {
       const id = record['@id'] as string
@@ -786,7 +788,10 @@ export function runChecks(config: Config, draft: Draft): Check[] {
         if (value === undefined) {
           continue
         }
-        textOnly += field.origin === 'wv' ? 1 : 0
+        if (field.origin === 'wv') {
+          const name = `${entity.plural}: ${field.label}`
+          textOnly.set(name, (textOnly.get(name) ?? 0) + 1)
+        }
         collectValues(field.input, value, (input, entry) => {
           if (input.kind === 'date' && !ISO_DATE.test(entry)) {
             checks.push({ level: 'error', text: `${id}: Datum „${entry}“ hat nicht die Form JJJJ-MM-TT.` })
@@ -798,7 +803,7 @@ export function runChecks(config: Config, draft: Draft): Check[] {
         })
       }
       if ((entity.key === 'works' || entity.key === 'expressions') && (record.titles as { text: Values }[] | undefined)?.some((title) => MAIN_LANGUAGE_NONE in title.text)) {
-        withoutLanguage += 1
+        withoutLanguage.push(id)
       }
     }
   }
@@ -814,11 +819,13 @@ export function runChecks(config: Config, draft: Draft): Check[] {
     }
   }
 
-  if (withoutLanguage > 0) {
-    checks.push({ level: 'info', text: `${withoutLanguage} Titel ohne Sprache: im MeLODy-Editor nicht speichern, das Formular schreibt dafür ungültiges Turtle.` })
+  if (withoutLanguage.length > 0) {
+    checks.push({ level: 'info', text: `${withoutLanguage.length} Titel ohne Sprache: im MeLODy-Editor nicht speichern, das Formular schreibt dafür ungültiges Turtle.`, details: withoutLanguage })
   }
-  if (textOnly > 0) {
-    checks.push({ level: 'info', text: `${textOnly} Angaben stehen in Erweiterungsfeldern und werden beim MeLODy-Export zu Text.` })
+  if (textOnly.size > 0) {
+    const total = [...textOnly.values()].reduce((sum, count) => sum + count, 0)
+    const details = [...textOnly].sort((a, b) => b[1] - a[1]).map(([name, count]) => `${name}: ${count}`)
+    checks.push({ level: 'info', text: `${total} Angaben stehen in Erweiterungsfeldern und werden beim MeLODy-Export zu Text.`, details })
   }
   return checks
 }

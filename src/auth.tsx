@@ -10,11 +10,16 @@ import { createClient, projectKey, whoAmI } from './baukasten/github.ts'
 
 const TOKEN_KEY = projectKey('wv-github-token')
 
+// Nur bei "npm run dev", aus der nicht eingecheckten .env.development.local, die Vite beim
+// Bauen nicht liest. VITE_GITHUB_TOKEN darf beim Bauen nie gesetzt sein: github.ts liest
+// import.meta.env als Ganzes, damit stuende jede VITE_-Variable im Ergebnis.
+const DEV_TOKEN: string = import.meta.env.DEV ? (import.meta.env.VITE_GITHUB_TOKEN ?? '') : ''
+
 function readToken(): string {
   try {
-    return window.sessionStorage.getItem(TOKEN_KEY) ?? ''
+    return window.sessionStorage.getItem(TOKEN_KEY) || DEV_TOKEN
   } catch {
-    return ''
+    return DEV_TOKEN
   }
 }
 

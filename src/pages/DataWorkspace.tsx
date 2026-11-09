@@ -26,6 +26,7 @@ import {
   recordFromName,
   runChecks,
   uniqueId,
+  type Check,
   type Draft,
   type ExpressionDraft,
   type PlainEntity,
@@ -166,7 +167,37 @@ function CodeBlock({ title, children }: { title: string; children: string }) {
   )
 }
 
-function ResultPanel({ config, draft, editing, onFix, showFiles }: { config: Config; draft: Draft; editing: Editing | null; onFix: () => void; showFiles: boolean }) {
+// Die Meldungen der Pruefung, auf Wunsch mit den Einzelheiten dahinter.
+export function CheckList({ checks, onFix, showDetails = false }: { checks: Check[]; onFix: () => void; showDetails?: boolean }) {
+  return (
+    <>
+      {checks.map((check) => (
+        <Alert
+          key={check.text}
+          severity={check.level === 'error' ? 'error' : 'info'}
+          action={
+            check.fix ? (
+              <Button color="inherit" size="small" onClick={onFix}>
+                Anlegen
+              </Button>
+            ) : undefined
+          }
+        >
+          {check.text}
+          {showDetails && check.details && (
+            <Box component="ul" tabIndex={0} sx={{ m: 0, mt: 1, pl: 2.5, maxHeight: 240, overflow: 'auto', fontSize: 13 }}>
+              {check.details.map((detail) => (
+                <li key={detail}>{detail}</li>
+              ))}
+            </Box>
+          )}
+        </Alert>
+      ))}
+    </>
+  )
+}
+
+function ResultPanel({ config, draft, editing, onFix }: { config: Config; draft: Draft; editing: Editing | null; onFix: () => void }) {
   const preview = useMemo(() => withEditing(draft, editing), [draft, editing])
   const { collections } = useMemo(() => buildCollections(config, preview), [config, preview])
   // Fuer die Pruefung zaehlt das Gespeicherte und das gerade Bearbeitete.
@@ -200,52 +231,36 @@ function ResultPanel({ config, draft, editing, onFix, showFiles }: { config: Con
         </Typography>
         <Stack spacing={1} sx={{ mt: 1.5 }}>
           {errors.length === 0 && <Alert severity="success">Gültig und FRBR-konform. Jede Datei folgt dem Schema der Vorlage.</Alert>}
-          {checks.map((check) => (
-            <Alert
-              key={check.text}
-              severity={check.level === 'error' ? 'error' : 'info'}
-              action={
-                check.fix ? (
-                  <Button color="inherit" size="small" onClick={onFix}>
-                    Anlegen
-                  </Button>
-                ) : undefined
-              }
-            >
-              {check.text}
-            </Alert>
-          ))}
+          <CheckList checks={checks} onFix={onFix} />
         </Stack>
       </Paper>
 
-      {showFiles && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" component="h3">
-            Was in den Dateien entsteht
-          </Typography>
-          <Tabs value={tab} onChange={(_, value: string) => setTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 1.5 }} aria-label="Dateien">
-            <Tab value="aktuell" label="Aktuell" sx={{ minWidth: 0 }} />
-            {activeFiles.map((entity) => (
-              <Tab key={entity.key} value={entity.key} label={`${entity.plural} (${collections[entity.key].length})`} sx={{ minWidth: 0 }} />
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="subtitle1" component="h3">
+          Was in den Dateien entsteht
+        </Typography>
+        <Tabs value={tab} onChange={(_, value: string) => setTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 1.5 }} aria-label="Dateien">
+          <Tab value="aktuell" label="Aktuell" sx={{ minWidth: 0 }} />
+          {activeFiles.map((entity) => (
+            <Tab key={entity.key} value={entity.key} label={`${entity.plural} (${collections[entity.key].length})`} sx={{ minWidth: 0 }} />
+          ))}
+        </Tabs>
+        {selectedEntity ? (
+          <CodeBlock title={selectedEntity.file}>{JSON.stringify(collections[selectedEntity.key], null, 2)}</CodeBlock>
+        ) : current.length > 0 ? (
+          <Stack spacing={1.5}>
+            {current.map(({ title, records }) => (
+              <CodeBlock key={title} title={title}>
+                {JSON.stringify(records.length === 1 ? records[0] : records, null, 2)}
+              </CodeBlock>
             ))}
-          </Tabs>
-          {selectedEntity ? (
-            <CodeBlock title={selectedEntity.file}>{JSON.stringify(collections[selectedEntity.key], null, 2)}</CodeBlock>
-          ) : current.length > 0 ? (
-            <Stack spacing={1.5}>
-              {current.map(({ title, records }) => (
-                <CodeBlock key={title} title={title}>
-                  {JSON.stringify(records.length === 1 ? records[0] : records, null, 2)}
-                </CodeBlock>
-              ))}
-            </Stack>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Lege links einen Datensatz an oder öffne einen. Hier siehst du dann live, welche Einträge daraus entstehen.
-            </Typography>
-          )}
-        </Paper>
-      )}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Lege links einen Datensatz an oder öffne einen. Hier siehst du dann live, welche Einträge daraus entstehen.
+          </Typography>
+        )}
+      </Paper>
     </Stack>
   )
 }
@@ -325,7 +340,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
   const isEmpty = draft.works.length === 0 && Object.values(draft.records).every((records) => records.length === 0)
 
   return (
-    <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, alignItems: 'flex-start' }}>
+    <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: showFiles ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)' }, alignItems: 'flex-start' }}>
       <Stack spacing={2} sx={{ minWidth: 0 }}>
         <Tabs
           value={current.key}
@@ -402,9 +417,12 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
           </Paper>
         )}
       </Stack>
-      <Box sx={{ minWidth: 0, position: { lg: 'sticky' }, top: { lg: 16 } }}>
-        <ResultPanel config={config} draft={draft} editing={editing} onFix={() => onDraft(createMissingExpressions(draft))} showFiles={showFiles} />
-      </Box>
+      {/* In der Bearbeitung stehen die Meldungen neben dem Speichern, siehe EditorPage. */}
+      {showFiles && (
+        <Box sx={{ minWidth: 0, position: { lg: 'sticky' }, top: { lg: 16 } }}>
+          <ResultPanel config={config} draft={draft} editing={editing} onFix={() => onDraft(createMissingExpressions(draft))} />
+        </Box>
+      )}
     </Box>
   )
 }

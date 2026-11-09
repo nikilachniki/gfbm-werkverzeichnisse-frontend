@@ -10,6 +10,9 @@ dist-ssr/
 # eigentlichen Quelle auseinander. Wird vor jedem dev/build neu geholt.
 src/data/
 
+# Lokale Einstellungen, etwa der GitHub-Token fuer npm run dev
+.env*.local
+
 # Logs
 npm-debug.log*
 *.log

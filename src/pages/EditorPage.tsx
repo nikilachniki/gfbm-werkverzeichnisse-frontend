@@ -13,10 +13,10 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useAuth } from '../authContext.ts'
 import { ExternalLink } from '../components/ExternalLink.tsx'
-import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, draftFromFiles, usageOf, type Draft } from '../baukasten/generate.ts'
+import { buildFiles, changedFiles, CONFIG_FILE, configForDraft, configFromText, configText, createMissingExpressions, draftFromFiles, runChecks, usageOf, type Draft } from '../baukasten/generate.ts'
 import { createClient, DEFAULT_TARGET, mergePull, openRemote, projectKey, publish, pullStatus, saveRemote, type PullStatus, type RemoteState } from '../baukasten/github.ts'
 import { withEntity, type Config } from '../baukasten/model.ts'
-import { DataWorkspace } from './DataWorkspace.tsx'
+import { CheckList, DataWorkspace } from './DataWorkspace.tsx'
 import { BuildingBlocksStep, FieldsStep } from './SetupControls.tsx'
 
 // Die Bearbeitung eines fertig eingerichteten Verzeichnisses: immer die echten Daten aus dem Repo.
@@ -192,8 +192,8 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
         Übernommene Einträge liegen zuerst nur in diesem Browser. „Nach GitHub speichern“ sichert sie in deinem Arbeitszweig <code>{remote.branch}</code>, öffentlich werden sie erst mit
         „Veröffentlichen“.
       </Typography>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ alignItems: { sm: 'center' }, flexWrap: 'wrap' }}>
-        <TextField size="small" label="Was wurde geändert?" placeholder={`Bearbeitung: ${changed.join(', ') || '…'}`} value={message} onChange={(event) => setMessage(event.target.value)} sx={{ flex: 1, minWidth: 220 }} />
+      <TextField size="small" fullWidth label="Was wurde geändert?" placeholder={`Bearbeitung: ${changed.join(', ') || '…'}`} value={message} onChange={(event) => setMessage(event.target.value)} />
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
         <Button variant="contained" size="small" disabled={busy || changed.length === 0} onClick={save}>
           Nach GitHub speichern
         </Button>
@@ -202,23 +202,19 @@ function PublishPanel({ project, remote, onSaved, onReopen }: { project: Project
         </Button>
       </Stack>
       {pull && (
-        <Alert
-          severity={pull.checks === 'failure' ? 'error' : pull.checks === 'success' && pull.mergeable !== false ? 'success' : 'info'}
-          action={
-            <Stack direction="row" spacing={1}>
-              <Button color="inherit" size="small" disabled={busy} onClick={refresh}>
-                Aktualisieren
-              </Button>
-              {/* Zusammenfuehren laedt das Verzeichnis neu, Ungespeichertes ginge dabei verloren. */}
-              <Button color="inherit" size="small" disabled={busy || waitingForStart || pull.checks === 'pending' || pull.mergeable === false || changed.length > 0} onClick={merge}>
-                Zusammenführen
-              </Button>
-            </Stack>
-          }
-        >
+        <Alert severity={pull.checks === 'failure' ? 'error' : pull.checks === 'success' && pull.mergeable !== false ? 'success' : 'info'}>
           <ExternalLink href={pull.url}>Pull Request #{pull.number}</ExternalLink>: {waitingForStart ? 'Prüfung startet gleich' : CHECK_TEXT[pull.checks]}
           {pull.mergeable === false ? '. Kollidiert mit inzwischen Veröffentlichtem.' : '.'}
           {changed.length > 0 && ' Noch nicht Gespeichertes bitte zuerst speichern. Es kommt dann in diesen Pull Request und wird mitgeprüft.'}
+          <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: 'wrap' }}>
+            <Button color="inherit" size="small" disabled={busy} onClick={refresh}>
+              Aktualisieren
+            </Button>
+            {/* Zusammenfuehren laedt das Verzeichnis neu, Ungespeichertes ginge dabei verloren. */}
+            <Button color="inherit" size="small" disabled={busy || waitingForStart || pull.checks === 'pending' || pull.mergeable === false || changed.length > 0} onClick={merge}>
+              Zusammenführen
+            </Button>
+          </Stack>
         </Alert>
       )}
       {merged && (
@@ -280,6 +276,39 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
   )
 }
 
+type EditorTab = 'daten' | 'einrichtung' | 'export'
+
+// Nur was beim Speichern zaehlt. Es gilt das Uebernommene, ein offenes Formular noch nicht.
+function SaveChecks({ config, draft, onFix }: { config: Config; draft: Draft; onFix: () => void }) {
+  const errors = useMemo(() => runChecks(config, draft).filter((check) => check.level === 'error'), [config, draft])
+  return (
+    <Stack spacing={1}>
+      <Typography variant="subtitle1" component="h3">
+        Prüfung
+      </Typography>
+      {errors.length === 0 && <Alert severity="success">Keine Fehler gefunden.</Alert>}
+      <CheckList checks={errors} onFix={onFix} />
+    </Stack>
+  )
+}
+
+// Was beim Export nach MeLODy zu beachten ist. Das Speichern haengt nicht davon ab.
+function ExportPanel({ config, draft }: { config: Config; draft: Draft }) {
+  const hints = useMemo(() => runChecks(config, draft).filter((check) => check.level === 'info'), [config, draft])
+  return (
+    <Stack spacing={1.5}>
+      <Typography variant="h6" component="h3">
+        Export nach MeLODy
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Der Export läuft bei jeder Prüfung auf GitHub mit. Diese Hinweise verhindern das Speichern nicht.
+      </Typography>
+      {hints.length === 0 && <Alert severity="success">Keine Hinweise zum Export.</Alert>}
+      <CheckList checks={hints} onFix={() => undefined} showDetails />
+    </Stack>
+  )
+}
+
 export function EditorPage({ setup, onName }: { setup: string; onName: (name: string) => void }) {
   const { token, login } = useAuth()
   const client = useMemo(() => createClient(token), [token])
@@ -287,7 +316,7 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
   const [error, setError] = useState('')
   const [dropped, setDropped] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  const [tab, setTab] = useState<'daten' | 'einrichtung'>('daten')
+  const [tab, setTab] = useState<EditorTab>('daten')
 
   const openProject = useCallback(async () => {
     const { files, config, state } = await openRemote(client, DEFAULT_TARGET, login)
@@ -358,10 +387,10 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
   return (
     <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Stack spacing={3}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h5" component="h2">
-              Daten bearbeiten
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '360px minmax(0, 1fr)' }, alignItems: 'flex-start' }}>
+          <Paper variant="outlined" component="aside" sx={{ p: 2, minWidth: 0, position: { lg: 'sticky' }, top: { lg: 16 }, maxHeight: { lg: 'calc(100vh - 112px)' }, overflow: { lg: 'auto' } }}>
+            <Typography variant="h6" component="h2">
+              Änderungen speichern
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               {remote.target.owner}/{remote.target.repo}. {changed.length > 0 ? `Noch nicht gespeichert: ${changed.join(', ')}.` : 'Alles gespeichert.'}
@@ -380,11 +409,14 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
                 setProject(await openProject())
               }}
             />
+            <Divider sx={{ my: 2 }} />
+            <SaveChecks config={config} draft={draft} onFix={() => setDraft(createMissingExpressions(draft))} />
           </Paper>
-          <Box>
-            <Tabs value={tab} onChange={(_, value: 'daten' | 'einrichtung') => setTab(value)} aria-label="Bereiche der Verwaltung" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Tabs value={tab} onChange={(_, value: EditorTab) => setTab(value)} aria-label="Bereiche der Verwaltung" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
               <Tab value="daten" label="Daten" />
               <Tab value="einrichtung" label="Einrichtung" />
+              <Tab value="export" label="Export" />
             </Tabs>
             {/* Beide bleiben geladen, damit ein offenes Formular den Wechsel uebersteht. */}
             <Box hidden={tab !== 'daten'}>
@@ -393,8 +425,10 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
             <Box hidden={tab !== 'einrichtung'}>
               <SetupPanel config={config} draft={draft} onConfig={(next) => setProject({ draft, config: next })} />
             </Box>
+            {/* Nur berechnen, wenn jemand hinschaut: Bei grossen Verzeichnissen kostet das Zeit. */}
+            {tab === 'export' && <ExportPanel config={config} draft={draft} />}
           </Box>
-        </Stack>
+        </Box>
       </Container>
     </Box>
   )
