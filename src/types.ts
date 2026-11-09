@@ -247,12 +247,16 @@ export interface SourceItem {
 export interface Source {
   '@id': string
   slug: string
-  // Kurzbezeichnung, bei Drucken die Sigle
+  // Kurzbezeichnung fuer Chips und Verweise: die Sigle, ohne Sigle der Titel
   siglum: string
+  // Nur die tatsaechlich vergebene Sigle
+  ownSiglum: string | null
   kind: SourceKind
   title: string
   titlePage: string | null
   year: number | null
+  // Zeitraum fuer den Jahresfilter, bei Handschriften aus dem Text der Datierung
+  period: { from: number; to: number } | null
   // Datierung, wie sie angezeigt wird, etwa "ca. 1558"
   dateLabel: string
   place: string | null

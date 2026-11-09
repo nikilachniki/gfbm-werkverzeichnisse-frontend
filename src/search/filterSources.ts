@@ -133,10 +133,10 @@ export function filterSources(summaries: SourceSummary[], filters: SourcesFilter
     if (filters.kinds.length > 0 && !filters.kinds.includes(source.kind)) {
       return false
     }
-    if (siglum && !normalize(source.siglum).includes(siglum)) {
+    if (siglum && !normalize(source.ownSiglum ?? '').includes(siglum)) {
       return false
     }
-    if (!inYearRange(source.year, filters.yearFrom, filters.yearTo)) {
+    if (!inYearRange(source.period, filters.yearFrom, filters.yearTo)) {
       return false
     }
     if (

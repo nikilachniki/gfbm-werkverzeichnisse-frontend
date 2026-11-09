@@ -244,6 +244,17 @@ function publicationLabel(publication: RawPublication | undefined): string {
   return publication?.label ?? (publicationYear(publication)?.toString() ?? '')
 }
 
+// Zeitraum einer Datierung als Text: von der fruehesten bis zur spaetesten genannten
+// Jahreszahl, ohne Jahreszahl das ganze Jahrhundert.
+function periodOfDating(dating: string | undefined): Source['period'] {
+  const years = (dating?.match(/\b\d{4}\b/g) ?? []).map(Number)
+  if (years.length > 0) {
+    return { from: Math.min(...years), to: Math.max(...years) }
+  }
+  const centuries = Array.from(dating?.matchAll(/\b(\d{2})\.\s*(?:Jh|Jahrhundert)/g) ?? [], (match) => Number(match[1]))
+  return centuries.length > 0 ? { from: (Math.min(...centuries) - 1) * 100, to: Math.max(...centuries) * 100 - 1 } : null
+}
+
 const noteByLabel = (notes: RawNote[], label: string) => notes.find((note) => note.label === label)
 
 function sourceKind(raw: RawManifestation): SourceKind {
@@ -273,14 +284,17 @@ export const sources: Source[] = rawManifestations
     const notes = raw.notes ?? []
     const links = raw.sameAs ?? []
     const description = noteByLabel(notes, 'Beschreibung')
+    const year = publicationYear(raw.publication)
     return {
       '@id': raw['@id'],
       slug: localId(raw['@id']),
       siglum: siglum ?? title,
+      ownSiglum: siglum ?? null,
       kind: sourceKind(raw),
       title,
       titlePage: raw.titlePages?.[0] ? noteText(raw.titlePages[0]) : null,
-      year: publicationYear(raw.publication),
+      year,
+      period: year !== null ? { from: year, to: year } : periodOfDating(raw.dating),
       dateLabel: raw.dating ?? publicationLabel(raw.publication),
       place: placeName(raw.publication?.place),
       publisher: raw.publication?.publisherName ?? null,

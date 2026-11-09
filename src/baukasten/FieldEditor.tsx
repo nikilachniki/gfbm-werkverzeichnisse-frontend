@@ -183,6 +183,25 @@ export function FieldEditor({ part, entity, field, value, onChange, context }: {
   const { input, label } = part
   switch (input.kind) {
     case 'text':
+      if (input.suggest) {
+        return (
+          <Autocomplete<string, false, true, true>
+            freeSolo
+            disableClearable
+            size="small"
+            fullWidth
+            options={input.suggest}
+            value={(value as string) ?? ''}
+            onChange={(_, next) => onChange(next)}
+            onInputChange={(_, next, reason) => {
+              if (reason === 'input') {
+                onChange(next)
+              }
+            }}
+            renderInput={(params) => <TextField {...params} label={label} placeholder={input.placeholder} />}
+          />
+        )
+      }
       return (
         <TextField
           size="small"

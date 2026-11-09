@@ -20,6 +20,7 @@ import {
   buildCollections,
   createMissingExpressions,
   displayName,
+  incompleteRows,
   isManuscript,
   itemsOfSource,
   missingRequired,
@@ -364,6 +365,20 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
       ? missingRequired(config, entityOf('works'), editing.work.values)
       : missingRequired(config, entityOf(editing.entity), editing.record)
 
+  const incomplete = !editing
+    ? []
+    : editing.entity === 'works'
+      ? [
+          ...incompleteRows(config, entityOf('works'), editing.work.values),
+          ...editing.work.expressions.flatMap((expression, index) =>
+            incompleteRows(config, entityOf('expressions'), expression.values).map((label) => `${label} (Fassung ${index + 1})`),
+          ),
+        ]
+      : [
+          ...incompleteRows(config, entityOf(editing.entity), editing.record),
+          ...(hasItemForm(editing) ? incompleteRows(config, entityOf('items'), editing.item!).map((label) => `${label} (Exemplar)`) : []),
+        ]
+
   const save = () => {
     onDraft(withEditing(draft, editing))
     if (editing && editing.entity !== 'works' && hasItemForm(editing) && !editing.item!['@id']) {
@@ -455,7 +470,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
               </Stack>
             )}
             <Stack direction="row" spacing={1} sx={{ mt: 3, alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
-              <Button variant="contained" disabled={missing.length > 0} onClick={save}>
+              <Button variant="contained" disabled={missing.length > 0 || incomplete.length > 0} onClick={save}>
                 Übernehmen
               </Button>
               <Button onClick={() => setEditing(null)}>Abbrechen</Button>
@@ -467,6 +482,11 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
               {missing.length > 0 && (
                 <Typography variant="caption" color="text.secondary">
                   Es fehlt noch: {missing.join(', ')}
+                </Typography>
+              )}
+              {incomplete.length > 0 && (
+                <Typography variant="caption" color="error">
+                  Unvollständige Zeilen ergänzen oder entfernen: {incomplete.join(', ')}
                 </Typography>
               )}
             </Stack>

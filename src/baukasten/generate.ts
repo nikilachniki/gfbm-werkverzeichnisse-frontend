@@ -181,7 +181,12 @@ function clean(config: Config, input: Input, value: unknown, entity?: EntityKey,
   switch (input.kind) {
     case 'text': {
       const text = String(value).trim()
-      return text ? (input.html ? escapeHtml(text) : text) : undefined
+      if (!text) {
+        return undefined
+      }
+      // Die Anzeige erkennt vorgeschlagene Namen nur in genau dieser Schreibweise.
+      const suggested = input.suggest?.find((name) => name.toLowerCase() === text.toLowerCase())
+      return suggested ?? (input.html ? escapeHtml(text) : text)
     }
     case 'number': {
       const number = Number(value)
@@ -241,6 +246,13 @@ function cleanParts(config: Config, parts: Part[], value: Values, entity?: Entit
     const cleaned = clean(config, part.input, value[part.key], entity, field)
     if (cleaned !== undefined) {
       result[part.key] = cleaned
+    }
+  }
+  // Was das Formular nicht kennt, etwa die Art eines Besetzungsglieds, bleibt erhalten.
+  const known = new Set(parts.map((part) => part.key))
+  for (const [key, other] of Object.entries(value)) {
+    if (!known.has(key)) {
+      result[key] = other
     }
   }
   return Object.keys(result).length > 0 ? result : undefined
@@ -836,6 +848,23 @@ export function missingRequired(config: Config, entity: EntityDef, values: Value
   return entity.fields
     .filter((field) => field.required && !field.derived && field.input.kind !== 'auto')
     .filter((field) => clean(config, field.input, values[field.key]) === undefined)
+    .map((field) => field.label)
+}
+
+// Felder mit Zeilen, die beim Speichern wegfielen, obwohl etwas eingetragen ist. Eine
+// Zeile, in der nur die Vorbelegung steht, gilt als leer.
+export function incompleteRows(config: Config, entity: EntityDef, values: Values): string[] {
+  return entity.fields
+    .filter((field) => {
+      const input = field.input
+      if (input.kind !== 'rows' || !isFieldActive(config, entity.key, field)) {
+        return false
+      }
+      return ((values[field.key] as Values[] | undefined) ?? []).some((row) => {
+        const cleaned = cleanParts(config, input.parts, row, entity.key, field)
+        return cleaned !== undefined && !isCompleteRow(input, cleaned) && Object.keys(cleaned).some((key) => cleaned[key] !== input.defaults?.[key])
+      })
+    })
     .map((field) => field.label)
 }
 

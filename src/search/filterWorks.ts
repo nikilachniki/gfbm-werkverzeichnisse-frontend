@@ -141,7 +141,7 @@ export function searchWorks(works: Work[], filters: WorksFilters): { works: Work
     }
     if (
       (filters.yearFrom || filters.yearTo) &&
-      !getWorkSources(work).some(({ source }) => inYearRange(source.year, filters.yearFrom, filters.yearTo))
+      !getWorkSources(work).some(({ source }) => inYearRange(source.period, filters.yearFrom, filters.yearTo))
     ) {
       return false
     }

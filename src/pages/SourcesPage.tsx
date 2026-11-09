@@ -28,15 +28,11 @@ interface Row {
   title: string
   description: string
   source: Source
-  rism: string
   dateLabel: string
   workCount: number
-  earliestCount: number
   voiceCounts: string
   languages: string
 }
-
-const hasRism = sourceSummaries.some((summary) => summary.source.rismUrl)
 
 function collect<T>(pick: (summary: (typeof sourceSummaries)[number]) => T[]): T[] {
   return Array.from(new Set(sourceSummaries.flatMap(pick)))
@@ -78,9 +74,6 @@ const fields: FilterField<SourcesFilters>[] = [
 ]
 
 function createColumns(query: string): GridColDef<Row>[] {
-  const highlighted = (field: 'siglum' | 'languages') => ({
-    renderCell: (params: GridRenderCellParams<Row>) => <Highlight text={params.row[field]} query={query} />,
-  })
   const truncated = (field: 'title' | 'description') => ({
     renderCell: (params: GridRenderCellParams<Row>) => (
       <Box
@@ -94,43 +87,46 @@ function createColumns(query: string): GridColDef<Row>[] {
   })
   return [
     { field: 'kind', headerName: 'Art', width: 110 },
-    { field: 'siglum', headerName: 'Sigle', width: 170, sortComparator: compareNatural, ...highlighted('siglum') },
+    {
+      field: 'siglum',
+      headerName: 'Sigle',
+      width: 170,
+      sortComparator: compareNatural,
+      renderCell: (params: GridRenderCellParams<Row>) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: '100%' }}>
+          <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Highlight text={params.row.siglum} query={query} />
+          </Box>
+          <RismBadge source={params.row.source} />
+        </Box>
+      ),
+    },
     { field: 'title', headerName: 'Titel', flex: 3, minWidth: 240, ...truncated('title') },
     { field: 'description', headerName: 'Beschreibung', flex: 2, minWidth: 200, ...truncated('description') },
-    ...(hasRism
-      ? [
-          {
-            field: 'rism',
-            headerName: 'RISM',
-            width: 80,
-            renderCell: (params: GridRenderCellParams<Row>) => <RismBadge source={params.row.source} />,
-          },
-        ]
-      : []),
     { field: 'dateLabel', headerName: 'Datierung', width: 100 },
     { field: 'workCount', headerName: 'Werke', type: 'number', width: 80 },
-    {
-      field: 'earliestCount',
-      headerName: 'Zuerst belegt',
-      description: 'Werke, deren frühester Druck dieser Druck ist, aus dem Datum abgeleitet',
-      type: 'number',
-      width: 120,
-    },
     { field: 'voiceCounts', headerName: 'Stimmen', width: 110 },
-    { field: 'languages', headerName: 'Sprache', flex: 1, minWidth: 120, ...highlighted('languages') },
+    {
+      field: 'languages',
+      headerName: 'Sprache',
+      flex: 1,
+      minWidth: 120,
+      renderCell: (params: GridRenderCellParams<Row>) => <Highlight text={params.row.languages} query={query} />,
+    },
   ]
 }
 
 // Leere Spalten starten ausgeblendet, siehe emptyColumns.ts.
 const HIDDEN_EMPTY_COLUMNS = hideEmptyColumns(
   sourceSummaries.map((summary) => ({
+    // Die Spalte traegt auch den RISM-Link.
+    siglum: summary.source.ownSiglum ?? summary.source.rismUrl ?? '',
     description: summary.source.description ?? '',
-    rism: summary.source.rismLabel ?? '',
     dateLabel: summary.source.dateLabel,
     voiceCounts: summary.voiceCounts,
     languages: summary.languages,
   })),
-  ['description', 'rism', 'dateLabel', 'voiceCounts', 'languages'],
+  ['siglum', 'description', 'dateLabel', 'voiceCounts', 'languages'],
 )
 
 interface SourcesPageProps {
@@ -146,16 +142,12 @@ export function SourcesPage({ filters, onFiltersChange }: SourcesPageProps) {
       filterSources(sourceSummaries, filters).map((summary) => ({
         id: summary.source['@id'],
         kind: SOURCE_KIND_LABELS[summary.source.kind],
-        siglum: summary.source.siglum,
-        title: summary.source.title === summary.source.siglum ? '' : summary.source.title,
+        siglum: summary.source.ownSiglum ?? '',
+        title: summary.source.title,
         description: summary.source.description ?? '',
         source: summary.source,
-        rism: summary.source.rismLabel ?? '',
         dateLabel: summary.source.dateLabel,
         workCount: summary.contents.length,
-        earliestCount: new Set(
-          summary.contents.filter((content) => content.isEarliestPrint).map(({ work }) => work['@id']),
-        ).size,
         voiceCounts: summary.voiceCounts.join(', '),
         languages: summary.languages.join(', '),
       })),

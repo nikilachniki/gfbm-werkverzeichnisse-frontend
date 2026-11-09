@@ -38,7 +38,8 @@ const CERTAINTY: Option[] = [
 ]
 
 export type Input =
-  | { kind: 'text'; multiline?: boolean; html?: boolean; placeholder?: string }
+  // suggest: Namen, die die Anzeige erkennt; alles andere bleibt freier Text.
+  | { kind: 'text'; multiline?: boolean; html?: boolean; placeholder?: string; suggest?: string[] }
   | { kind: 'number' }
   | { kind: 'date' }
   | { kind: 'link' }
@@ -117,14 +118,15 @@ const publicationInput: Input = {
     { key: 'publisherName', label: 'Verlag', input: { kind: 'text' } },
   ],
 }
-const identifiersInput: Input = {
+const identifiersWith = (list: Input): Input => ({
   kind: 'rows',
   addLabel: 'Nummer ergänzen',
   parts: [
-    { key: 'list', label: 'Verzeichnis', input: { kind: 'text' } },
+    { key: 'list', label: 'Verzeichnis', input: list },
     { key: 'value', label: 'Nummer', input: { kind: 'text' } },
   ],
-}
+})
+const identifiersInput = identifiersWith({ kind: 'text' })
 const contributorsInput: Input = {
   kind: 'rows',
   addLabel: 'Person ergänzen',
@@ -135,14 +137,15 @@ const contributorsInput: Input = {
     { key: 'certainty', label: 'Sicherheit', input: { kind: 'select', options: CERTAINTY } },
   ],
 }
-const notesInput: Input = {
+const notesWith = (suggest?: string[]): Input => ({
   kind: 'rows',
   addLabel: 'Anmerkung ergänzen',
   parts: [
-    { key: 'label', label: 'Art', input: { kind: 'text', placeholder: 'Bemerkung' } },
+    { key: 'label', label: 'Art', input: { kind: 'text', placeholder: 'Bemerkung', suggest } },
     { key: 'html', label: 'Text', input: { kind: 'text', multiline: true, html: true } },
   ],
-}
+})
+const notesInput = notesWith()
 const citationsInput: Input = {
   kind: 'rows',
   addLabel: 'Fundstelle ergänzen',
@@ -247,7 +250,7 @@ export const ENTITIES: EntityDef[] = [
     fields: [
       { key: 'titles', label: 'Titel', origin: 'melody', required: true, help: 'Name des Drucks oder Bezeichnung der Handschrift.', input: titles(false, 1) },
       { key: 'classifications', label: 'Art', origin: 'melody', help: 'Druck oder Handschrift. Eine Handschrift bekommt automatisch ein Exemplar.', input: { kind: 'terms', options: [{ value: 'terms:Print', label: 'Druck' }, { value: 'terms:Manuscript', label: 'Handschrift' }] } },
-      { key: 'identifiers', label: 'Sigle und Katalognummern', origin: 'melody', help: 'Etwa RISM, Sigle oder Plattennummer.', input: identifiersInput },
+      { key: 'identifiers', label: 'Sigle und Katalognummern', origin: 'melody', help: 'Etwa RISM, Sigle oder Plattennummer. Als Sigle erscheint, was im Verzeichnis „Sigle“ steht.', input: identifiersWith({ kind: 'text', suggest: ['Sigle', 'RISM'] }) },
       {
         key: 'contents',
         label: 'Enthaltene Stücke',
@@ -275,7 +278,7 @@ export const ENTITIES: EntityDef[] = [
       { key: 'dating', label: 'Datierung der Handschrift', origin: 'wv', help: 'Text wie in der Literatur. Drucke tragen ihr Datum in den Erscheinungsangaben.', input: { kind: 'text', placeholder: 'um 1585' } },
       { key: 'literature', label: 'Literatur', origin: 'wv', help: 'Literaturangaben als Text.', input: { kind: 'strings' } },
       { key: 'sameAs', label: 'Externe Links', origin: 'melody', help: SAME_AS_HELP, input: links },
-      { key: 'notes', label: 'Anmerkungen', origin: 'melody', help: 'Etwa zur Provenienz.', input: notesInput },
+      { key: 'notes', label: 'Anmerkungen', origin: 'melody', help: 'Etwa zur Provenienz. Die Art „Beschreibung“ erscheint in der Quellenliste.', input: notesWith(['Beschreibung']) },
     ],
   },
   {

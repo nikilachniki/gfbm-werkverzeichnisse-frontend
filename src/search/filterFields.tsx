@@ -94,14 +94,15 @@ export function yearRangeField<F>(
 }
 
 // Prueft ein Jahr gegen eine Spanne aus den Filterfeldern (Text, ggf. leer)
-export function inYearRange(year: number | null, from: string, to: string): boolean {
+// Ein Zeitraum trifft, sobald er sich mit dem gesuchten ueberschneidet.
+export function inYearRange(period: { from: number; to: number } | null, from: string, to: string): boolean {
   if (from === '' && to === '') {
     return true
   }
-  if (year === null) {
+  if (period === null) {
     return false
   }
-  return (from === '' || year >= Number(from)) && (to === '' || year <= Number(to))
+  return (from === '' || period.to >= Number(from)) && (to === '' || period.from <= Number(to))
 }
 
 // Suche nach der Katalognummer: eine genaue Nummer oder eine Nummer mit ihren
