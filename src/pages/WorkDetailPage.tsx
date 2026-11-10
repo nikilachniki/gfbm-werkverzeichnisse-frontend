@@ -22,6 +22,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { BackButton } from '../components/BackButton.tsx'
 import { CitationChips } from '../components/CitationChips.tsx'
+import { EditRecordButton } from '../components/EditRecordButton.tsx'
 import { ExternalChip } from '../components/ExternalChip.tsx'
 import { Fact } from '../components/Fact.tsx'
 import { Section } from '../components/Section.tsx'
@@ -349,6 +350,8 @@ export function WorkDetailPage() {
           <Chip label={formatCatalogNumber(work.number)} size="small" sx={{ fontWeight: 700 }} />
           {!isBaseWork(work) && <Chip label="Teil" size="small" variant="outlined" />}
           {work.status && <Chip label={work.status} size="small" variant="outlined" />}
+          <Box sx={{ flexGrow: 1 }} />
+          <EditRecordButton entity="works" id={work['@id']} label="Werk" />
         </Stack>
         <Typography variant="h4" component="h2" sx={{ mb: 3 }}>
           {work.title}

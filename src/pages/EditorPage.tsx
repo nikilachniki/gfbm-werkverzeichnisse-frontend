@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
@@ -16,7 +17,7 @@ import { useAuth } from '../authContext.ts'
 import { ExternalLink } from '../components/ExternalLink.tsx'
 import { buildFiles, changedFiles, changedRecords, CONFIG_FILE, configForDraft, configFromText, configText, createMissingExpressions, draftFromFiles, runChecks, usageOf, type Draft } from '../baukasten/generate.ts'
 import { createClient, DEFAULT_TARGET, mergePull, openRemote, projectKey, publish, pullStatus, saveRemote, type PullStatus, type RemoteState } from '../baukasten/github.ts'
-import { withEntity, type Config } from '../baukasten/model.ts'
+import { withEntity, type Config, type EntityKey } from '../baukasten/model.ts'
 import { CheckList, DataWorkspace } from './DataWorkspace.tsx'
 import { BuildingBlocksStep, FieldsStep } from './SetupControls.tsx'
 
@@ -236,12 +237,9 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
   const setEntity = (key: Parameters<typeof withEntity>[1], on: boolean) => onConfig(withEntity(config, key, on))
   return (
     <Stack spacing={4}>
-      <Alert severity="info" variant="outlined">
-        Einschalten geht jederzeit. Was schon Daten enthält, bleibt eingeschaltet, bis die Einträge gelöscht sind. Änderungen hier werden wie Daten nach GitHub gespeichert und veröffentlicht.
-      </Alert>
       <Box component="section">
         <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
-          Verzeichnis
+          Allgemein
         </Typography>
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' } }}>
           <TextField size="small" label="Name des Verzeichnisses" value={config.catalogue.label} onChange={(event) => setCatalogue({ label: event.target.value })} />
@@ -346,6 +344,11 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
   const [dropped, setDropped] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [tab, setTab] = useState<EditorTab>('daten')
+  // Vom Bearbeiten-Symbol einer Detailseite: /admin?typ=works&id=...
+  const [params] = useSearchParams()
+  const targetType = params.get('typ')
+  const targetId = params.get('id')
+  const target = targetType && targetId ? { entity: targetType as EntityKey, id: targetId } : undefined
 
   const openProject = useCallback(async () => {
     const { files, config, state } = await openRemote(client, DEFAULT_TARGET, login)
@@ -443,7 +446,7 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
             </Tabs>
             {/* Beide bleiben geladen, damit ein offenes Formular den Wechsel uebersteht. */}
             <Box hidden={tab !== 'daten'}>
-              <DataWorkspace config={config} draft={draft} onDraft={setDraft} showFiles={false} />
+              <DataWorkspace config={config} draft={draft} onDraft={setDraft} showFiles={false} target={target} />
             </Box>
             <Box hidden={tab !== 'einrichtung'}>
               <SetupPanel config={config} draft={draft} onConfig={(next) => setProject({ draft, config: next })} />

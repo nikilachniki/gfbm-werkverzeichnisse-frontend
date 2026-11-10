@@ -27,6 +27,7 @@ import {
   newExpression,
   newWork,
   recordFromName,
+  recordNumber,
   recordSearchIndex,
   runChecks,
   searchEntries,
@@ -51,6 +52,17 @@ type Editing =
 
 // Lange Listen kommen portionsweise, sonst stockt bei grossen Verzeichnissen das Tippen.
 const LIST_PAGE = 200
+
+// Das Formular zu einem vorhandenen Datensatz, null wenn es ihn nicht gibt.
+function editingOf(config: Config, draft: Draft, entity: EntityKey, id: string): Editing | null {
+  if (entity === 'works') {
+    const work = draft.works.find((other) => other.id === id)
+    return work ? { entity: 'works', work: structuredClone(work), isNew: false } : null
+  }
+  const plain = entity as PlainEntity
+  const record = draft.records[plain].find((other) => other['@id'] === id)
+  return record ? { entity: plain, record: structuredClone(record), isNew: false, ...(plain === 'manifestations' ? { item: itemToEdit(config, draft, id) } : {}) } : null
+}
 
 // Der Entwurf samt dem Datensatz, der gerade bearbeitet wird. Daraus entsteht die Live-Vorschau.
 function withEditing(draft: Draft, editing: Editing | null): Draft {
@@ -306,12 +318,17 @@ function ResultPanel({ config, draft, editing, onFix }: { config: Config; draft:
   )
 }
 
-export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: { config: Config; draft: Draft; onDraft: (next: Draft) => void; onSample?: () => void; showFiles: boolean }) {
+// target: der Datensatz, der beim Aufruf gleich geoeffnet wird, etwa vom Bearbeiten-Symbol
+// einer Detailseite. Der Typ stammt aus der Adresse und kann darum auch unbekannt sein.
+export function DataWorkspace({ config, draft, onDraft, onSample, showFiles, target }: { config: Config; draft: Draft; onDraft: (next: Draft) => void; onSample?: () => void; showFiles: boolean; target?: { entity: EntityKey; id: string } }) {
   const entities = ENTITIES.filter((entity) => entity.key !== 'expressions' && isEntityActive(config, entity.key))
-  const [selected, setSelected] = useState<EntityKey>('works')
-  const [openForm, setEditing] = useState<Editing | null>(null)
+  const targetKnown = target !== undefined && entities.some((entity) => entity.key === target.entity)
+  const [selected, setSelected] = useState<EntityKey>(targetKnown ? target.entity : 'works')
+  const [openForm, setEditing] = useState<Editing | null>(() => (targetKnown ? editingOf(config, draft, target.entity, target.id) : null))
   // Was gerade nebenbei passiert ist; link fuehrt zu den Exemplaren.
-  const [notice, setNotice] = useState<{ text: string; link: boolean } | null>(null)
+  const [notice, setNotice] = useState<{ text: string; link: boolean; warning?: boolean } | null>(() =>
+    target && !openForm ? { text: `Der Datensatz ${target.id} ist im aktuellen Bearbeitungsstand nicht vorhanden.`, link: false, warning: true } : null,
+  )
   // Ein Formular gilt nur, solange sein Datentyp eingeschaltet ist.
   const editing = openForm && entities.some((entity) => entity.key === openForm.entity) ? openForm : null
   const current = entities.find((entity) => entity.key === selected) ?? entities[0]
@@ -320,10 +337,11 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
   const [limit, setLimit] = useState(LIST_PAGE)
 
   const currentKey = current.key
+  const abbreviation = config.catalogue.abbreviation.trim()
   const list = useMemo(() => {
-    const entry = (id: string, values: Values) => ({ id, label: displayName(currentKey, values) || id, document: recordSearchIndex(currentKey, id, values) })
+    const entry = (id: string, values: Values) => ({ id, label: displayName(currentKey, values) || id, number: recordNumber(currentKey, values, abbreviation), document: recordSearchIndex(currentKey, id, values) })
     return currentKey === 'works' ? draft.works.map((work) => entry(work.id, work.values)) : draft.records[currentKey as PlainEntity].map((record) => entry(record['@id'] as string, record))
-  }, [currentKey, draft])
+  }, [currentKey, draft, abbreviation])
   const found = useMemo(() => searchEntries(list, query), [list, query])
   const shown = found.slice(0, limit)
 
@@ -346,16 +364,9 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
 
   const open = (id: string) => {
     setNotice(null)
-    if (current.key === 'works') {
-      const work = draft.works.find((other) => other.id === id)
-      if (work) {
-        setEditing({ entity: 'works', work: structuredClone(work), isNew: false })
-      }
-    } else {
-      const record = draft.records[current.key as PlainEntity].find((other) => other['@id'] === id)
-      if (record) {
-        setEditing({ entity: current.key as PlainEntity, record: structuredClone(record), isNew: false, ...(current.key === 'manifestations' ? { item: itemToEdit(config, draft, id) } : {}) })
-      }
+    const form = editingOf(config, draft, current.key, id)
+    if (form) {
+      setEditing(form)
     }
   }
 
@@ -438,7 +449,7 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
         </Tabs>
 
         {notice && (
-          <Alert severity="success" onClose={() => setNotice(null)}>
+          <Alert severity={notice.warning ? 'warning' : 'success'} onClose={() => setNotice(null)}>
             {notice.text}
             {notice.link && (
               <Button color="inherit" size="small" sx={{ ml: 1 }} onClick={() => showType('items')}>
@@ -533,7 +544,19 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles }: {
                 <List dense disablePadding sx={{ mt: 1 }}>
                   {shown.map((entry) => (
                     <ListItemButton key={entry.id} onClick={() => open(entry.id)} sx={{ borderRadius: 1 }}>
-                      <ListItemText primary={entry.label} secondary={entry.id} />
+                      <ListItemText
+                        primary={
+                          <>
+                            {entry.number && (
+                              <Box component="span" sx={{ fontWeight: 700, mr: 1 }}>
+                                {entry.number}
+                              </Box>
+                            )}
+                            {entry.label}
+                          </>
+                        }
+                        secondary={entry.id}
+                      />
                     </ListItemButton>
                   ))}
                 </List>

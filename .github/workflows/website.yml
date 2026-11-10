@@ -14,7 +14,7 @@ name: Website bauen (gemeinsam)
 #         data-path: data
 #
 # Die Seite liegt danach unter https://<owner>.github.io/<repo>/, die Verwaltung unter
-# .../#/admin und speichert in genau dieses Repo. Im Projekt-Repo muss einmalig
+# .../admin und speichert in genau dieses Repo. Im Projekt-Repo muss einmalig
 # Settings > Pages > Source auf "GitHub Actions" stehen.
 on:
   workflow_call:

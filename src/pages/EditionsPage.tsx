@@ -5,6 +5,7 @@ import Container from '@mui/material/Container'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { EditRecordButton } from '../components/EditRecordButton.tsx'
 import { Section } from '../components/Section.tsx'
 import type { Edition, Volume, VolumeContent } from '../types.ts'
 import { editions, getVolumeContents, volumeContentId, workLink } from '../catalogueData.ts'
@@ -168,7 +169,12 @@ function VolumeSection({ volume, arrival }: { volume: Volume; arrival: Arrival }
   return (
     <Box data-focus-volume={isTarget || undefined}>
       <RememberedSection id={volume['@id']} title={volumeHeading(volume)} count={ownWorkCount(volume)} level={3}>
-        <VolumeDetails volume={volume} />
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <VolumeDetails volume={volume} />
+          </Box>
+          <EditRecordButton entity="bibliography" id={volume['@id']} label="Band" />
+        </Box>
         <VolumeContents contents={getVolumeContents(volume)} focusId={isTarget ? arrival.focusId : undefined} />
       </RememberedSection>
     </Box>

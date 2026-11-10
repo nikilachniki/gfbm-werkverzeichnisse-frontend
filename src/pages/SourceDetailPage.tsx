@@ -15,6 +15,7 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { BackButton } from '../components/BackButton.tsx'
 import { CitationChips } from '../components/CitationChips.tsx'
+import { EditRecordButton } from '../components/EditRecordButton.tsx'
 import { ExternalChip } from '../components/ExternalChip.tsx'
 import { Fact } from '../components/Fact.tsx'
 import { Section } from '../components/Section.tsx'
@@ -32,6 +33,20 @@ import {
   textAuthorLabels,
   workLink,
 } from '../catalogueData.ts'
+
+// Die Nummer in der Quelle ist nur die laufende Stelle im Druck, keine Werknummer. Deshalb
+// steht sie zurueckgenommen als Randspalte ohne sichtbare Ueberschrift.
+function PositionHeader() {
+  return <TableCell aria-label="Nr. in der Quelle" />
+}
+
+function PositionCell({ position, part }: { position: string | null; part: string | null }) {
+  return (
+    <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+      {[position, part ? `Teil ${part}` : null].filter(Boolean).join(', ')}
+    </TableCell>
+  )
+}
 
 // Die Stuecke einer Quelle in ihrer Reihenfolge. Titel und Stimmenzahl der Quelle
 // stehen, wo sie abweichen, beim Stueck. Ein Klick fuehrt zum Werk.
@@ -51,7 +66,7 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            {hasPositions && <TableCell>Nr.</TableCell>}
+            {hasPositions && <PositionHeader />}
             <TableCell>{catalogue.catalogueAbbreviation}</TableCell>
             <TableCell>Werktitel</TableCell>
             <TableCell>Stimmen</TableCell>
@@ -74,12 +89,8 @@ function ContentsTable({ contents }: { contents: WorkInSource[] }) {
                 onClick={() => navigate(link.to, { state: link.state })}
                 sx={{ cursor: 'pointer' }}
               >
-                {hasPositions && (
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                    {[content.position, content.part ? `Teil ${content.part}` : null].filter(Boolean).join(', ')}
-                  </TableCell>
-                )}
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {hasPositions && <PositionCell position={content.position} part={content.part} />}
+                <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
                   {version?.number || work.number}
                   {content.isEarliestPrint && (
                     <Tooltip title="Frühester Druck: aus dem Datum abgeleitet, hier ist das Werk oder ein Teil davon zuerst belegt">
@@ -124,7 +135,7 @@ function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            {hasPositions && <TableCell>Nr.</TableCell>}
+            {hasPositions && <PositionHeader />}
             <TableCell>Titel in der Quelle</TableCell>
             {hasVoices && <TableCell>Stimmen</TableCell>}
             {hasNotes && <TableCell>Bemerkung</TableCell>}
@@ -133,11 +144,7 @@ function UnassignedTable({ pieces }: { pieces: UnassignedPiece[] }) {
         <TableBody>
           {pieces.map((piece, index) => (
             <TableRow key={index}>
-              {hasPositions && (
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {[piece.position, piece.part ? `Teil ${piece.part}` : null].filter(Boolean).join(', ')}
-                </TableCell>
-              )}
+              {hasPositions && <PositionCell position={piece.position} part={piece.part} />}
               <TableCell>{piece.title}</TableCell>
               {hasVoices && <TableCell>{piece.voices}</TableCell>}
               {hasNotes && <TableCell>{piece.note}</TableCell>}
@@ -190,6 +197,8 @@ export function SourceDetailPage() {
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
           <Chip label={SOURCE_KIND_LABELS[source.kind]} size="small" sx={{ fontWeight: 700 }} />
+          <Box sx={{ flexGrow: 1 }} />
+          <EditRecordButton entity="manifestations" id={source['@id']} label="Quelle" />
         </Stack>
         <Typography variant="h4" component="h2">
           {source.title || source.siglum}

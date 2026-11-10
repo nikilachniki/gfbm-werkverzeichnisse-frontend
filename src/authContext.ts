@@ -6,7 +6,8 @@ export interface Auth {
   status: 'checking' | 'signedOut' | 'signedIn'
   token: string
   login: string
-  signIn: (token: string) => Promise<void>
+  // remember: den Token dauerhaft auf dem Geraet behalten statt nur im Tab
+  signIn: (token: string, remember: boolean) => Promise<void>
   signOut: () => void
 }
 

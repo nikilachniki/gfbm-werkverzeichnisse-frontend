@@ -16,13 +16,18 @@ Einträge (etwa Quellen) blendet die Seite von selbst aus.
 
 ## Wie die Daten hierherkommen
 
-`scripts/sync-data.mjs` kopiert bei jedem Start die JSON-LD-Dateien eines
+`scripts/sync-data.mjs` holt bei jedem Start die JSON-LD-Dateien eines
 Verzeichnisses nach `src/data/`, von wo sie ins Bundle eingebunden werden. Der Ordner
 ist in `.gitignore` eingetragen. `src/catalogueData.ts` führt sie beim Laden in die
 Anzeigemodelle über und ergänzt die Gegenrichtung der Beziehungen.
 
-Ohne weitere Angabe wird der Auszug `examples/lasso-schwierig` aus der Vorlage
-verwendet, die dafür als Geschwisterordner auf dem Branch `main` liegen muss (der
+`npm run dev` lädt sie aus dem Repo in `.env.development` von GitHub, also aus demselben,
+mit dem auch die Verwaltung arbeitet. Das braucht eine Internetverbindung und ein
+öffentliches Repo. Angezeigt wird der Stand von `VITE_DATA_BRANCH` beim Start, Änderungen
+aus der Verwaltung erscheinen nach dem Veröffentlichen und einem Neustart.
+
+Ohne weitere Angabe, etwa bei `npm run build`, wird der Auszug `examples/lasso-schwierig`
+aus der Vorlage verwendet, die dafür als Geschwisterordner auf dem Branch `main` liegen muss (der
 frühere Ordnername `lassoDBData` geht auch):
 
 ```
@@ -31,7 +36,7 @@ IdeaProjects/
 └── gfbm-werkverzeichnisse/
 ```
 
-Ein anderes Verzeichnis wählt `WV_DATA_DIR`, in PowerShell etwa:
+Ein anderes Verzeichnis wählt `WV_DATA_DIR`, das immer Vorrang hat, in PowerShell etwa:
 
 ```powershell
 $env:WV_DATA_DIR = "..\gfbm-werkverzeichnisse\examples\beispiel"; npm run dev
@@ -39,10 +44,10 @@ $env:WV_DATA_DIR = "..\gfbm-werkverzeichnisse\examples\beispiel"; npm run dev
 
 ## Baukasten
 
-Der Baukasten liegt in der Verwaltung unter `#/admin`. Die Seite verlinkt sie nicht, die
-Redaktion ruft die Adresse direkt auf; geladen wird der Editor erst dann. Erreichbar ist
-sie nach dem Anmelden mit einem GitHub-Token. Was dort erscheint, entscheidet die
-`baukasten.json` auf `main` im Datenordner:
+Der Baukasten liegt in der Verwaltung unter `/admin`. Die Redaktion meldet sich über das
+Symbol oben rechts mit einem GitHub-Token an; danach erscheint in der Kopfzeile der Reiter
+**Verwaltung**. Geladen wird der Editor erst, wenn man ihn öffnet. Was dort erscheint,
+entscheidet die `baukasten.json` auf `main` im Datenordner:
 
 - **Ohne sie läuft die Einrichtung:** Vorlage wählen (Lasso, Le Beau oder leer), Datentypen
   und Felder an- und abwählen, festlegen, wie Werk und Expression verknüpft sind, und das

@@ -145,6 +145,17 @@ function firstTitle(values: Values): string {
   return Object.values(titles?.[0]?.text ?? {})[0] ?? ''
 }
 
+// Die Nummer in der Liste der Verwaltung: beim Werk die im eigenen Verzeichnis, sonst die
+// erste vorhandene, bei der Quelle die Sigle. Andere Datentypen haben keine.
+export function recordNumber(entity: EntityKey, record: Values, abbreviation: string): string {
+  const identifiers = ((record.identifiers as { list?: string; value?: string }[] | undefined) ?? []).filter((identifier) => identifier.value?.trim())
+  if (entity === 'works') {
+    const identifier = identifiers.find((candidate) => candidate.list === abbreviation) ?? identifiers[0]
+    return identifier ? [identifier.list, identifier.value].filter(Boolean).join(' ') : ''
+  }
+  return entity === 'manifestations' ? (identifiers.find((identifier) => identifier.list === 'Sigle')?.value ?? '') : ''
+}
+
 // Der Name eines Datensatzes in Auswahllisten.
 export function displayName(entity: EntityKey, record: Values): string {
   switch (entity) {
