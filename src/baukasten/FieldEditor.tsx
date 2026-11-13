@@ -8,16 +8,8 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import CloseIcon from '@mui/icons-material/Close'
-import { displayName, type Draft, type PlainEntity, type Values } from './generate.ts'
-import {
-  isPartUsable,
-  isSubfieldActive,
-  type Config,
-  type EntityKey,
-  type Input,
-  type Option,
-  type Part,
-} from './model.ts'
+import { displayName, TITLE_LANGUAGES, type Draft, type PlainEntity, type Values } from './generate.ts'
+import { isPartUsable, isSubfieldActive, type Config, type EntityKey, type Input, type Part } from './model.ts'
 
 export interface EditorContext {
   config: Config
@@ -25,15 +17,6 @@ export interface EditorContext {
   // Legt zu einem eingetippten Namen einen Datensatz an und liefert seine ID.
   createRecord: (entity: PlainEntity, name: string) => string
 }
-
-const TITLE_LANGUAGES: Option[] = [
-  { value: '@none', label: 'ohne' },
-  { value: 'la', label: 'la' },
-  { value: 'it', label: 'it' },
-  { value: 'fr', label: 'fr' },
-  { value: 'de', label: 'de' },
-  { value: 'en', label: 'en' },
-]
 
 interface RefOption {
   id: string
@@ -43,6 +26,16 @@ interface RefOption {
 }
 
 const filter = createFilterOptions<RefOption>()
+
+// Die Treffer, dazu "neu anlegen", wenn es den getippten Namen noch nicht gibt.
+const withCreate = (create: boolean | undefined) => (all: RefOption[], state: Parameters<typeof filter>[1]) => {
+  const filtered = filter(all, state)
+  const typed = state.inputValue.trim()
+  if (create && typed && !all.some((option) => option.label === typed)) {
+    filtered.push({ id: '', label: `„${typed}“ neu anlegen`, create: typed })
+  }
+  return filtered
+}
 
 function recordOptions(draft: Draft, entity: EntityKey): RefOption[] {
   if (entity === 'works') {
@@ -69,14 +62,7 @@ function RefPicker({ input, label, value, onChange, context }: { input: Extract<
       isOptionEqualToValue={(option, other) => option.id === other.id}
       getOptionLabel={(option) => option.label}
       noOptionsText={input.create ? 'Namen tippen, um anzulegen' : 'Noch nichts angelegt'}
-      filterOptions={(all, state) => {
-        const filtered = filter(all, state)
-        const typed = state.inputValue.trim()
-        if (input.create && typed && !all.some((option) => option.label === typed)) {
-          filtered.push({ id: '', label: `„${typed}“ neu anlegen`, create: typed })
-        }
-        return filtered
-      }}
+      filterOptions={withCreate(input.create)}
       onChange={(_, option) => {
         if (option?.create) {
           onChange(context.createRecord(input.to as PlainEntity, option.create))
@@ -101,14 +87,7 @@ function RefsPicker({ input, label, value, onChange, context }: { input: Extract
       value={selected}
       isOptionEqualToValue={(option, other) => option.id === other.id}
       getOptionLabel={(option) => option.label}
-      filterOptions={(all, state) => {
-        const filtered = filter(all, state)
-        const typed = state.inputValue.trim()
-        if (input.create && typed && !all.some((option) => option.label === typed)) {
-          filtered.push({ id: '', label: `„${typed}“ neu anlegen`, create: typed })
-        }
-        return filtered
-      }}
+      filterOptions={withCreate(input.create)}
       onChange={(_, next) => {
         onChange(next.map((option) => (option.create ? context.createRecord(input.to as PlainEntity, option.create) : option.id)))
       }}
@@ -159,9 +138,10 @@ function TitleRow({ value, label, onChange, onRemove }: { value: Record<string, 
         onChange={(event) => onChange({ [event.target.value]: text })}
         sx={{ width: 96, flexShrink: 0 }}
       >
-        {TITLE_LANGUAGES.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
+        <MenuItem value="@none">ohne</MenuItem>
+        {TITLE_LANGUAGES.map((code) => (
+          <MenuItem key={code} value={code}>
+            {code}
           </MenuItem>
         ))}
       </TextField>

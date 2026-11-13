@@ -38,7 +38,7 @@ export function Section({
       elevation={0}
       square
       slotProps={{ transition: { unmountOnExit: true } }}
-      sx={{ '&::before': { display: 'none' }, borderTop: level === 2 ? 0 : 1, borderColor: 'divider' }}
+      sx={{ borderTop: level === 2 ? 0 : 1, borderColor: 'divider' }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
         <Typography {...headings[level]}>

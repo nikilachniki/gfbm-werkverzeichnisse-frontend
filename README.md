@@ -26,7 +26,7 @@ mit dem auch die Verwaltung arbeitet. Das braucht eine Internetverbindung und ei
 öffentliches Repo. Angezeigt wird der Stand von `VITE_DATA_BRANCH` beim Start, Änderungen
 aus der Verwaltung erscheinen nach dem Veröffentlichen und einem Neustart.
 
-Ohne weitere Angabe, etwa bei `npm run build`, wird der Auszug `examples/lasso-schwierig`
+Ohne weitere Angabe, etwa bei `npm run build`, wird der Beispieldatensatz `examples/`
 aus der Vorlage verwendet, die dafür als Geschwisterordner auf dem Branch `main` liegen muss (der
 frühere Ordnername `lassoDBData` geht auch):
 
@@ -80,7 +80,7 @@ Der Token ist ein fein granularer Token nur für das Daten-Repo mit Contents und
 requests (lesen und schreiben) sowie Actions (lesen). Er bleibt nur in der Sitzung im
 Browser. Welches Repo und welcher Ordner bearbeitet werden, legen beim Bauen
 `VITE_DATA_REPO`, `VITE_DATA_PATH` und `VITE_DATA_BRANCH` fest (Vorgabe:
-`nikilachniki/gfbm-werkverzeichnisse`, `examples/lasso-schwierig`, `main`).
+`nikilachniki/gfbm-werkverzeichnisse`, `examples`, `main`).
 
 Einmalig einzurichten:
 - In der Vorlage das Secret `FRONTEND_DEPLOY_TOKEN`: ein fein granularer Token für
@@ -112,8 +112,8 @@ npm run dev
 
 Der Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) baut bei
 jedem Push nach `main` und veröffentlicht auf GitHub Pages unter
-https://nikilachniki.github.io/gfbm-werkverzeichnisse-frontend/. Er zeigt den Auszug
-`examples/lasso-schwierig` aus der Vorlage. Den Pfad leitet er aus dem Repo-Namen ab
+https://nikilachniki.github.io/gfbm-werkverzeichnisse-frontend/. Er zeigt den Beispieldatensatz
+`examples/` aus der Vorlage. Den Pfad leitet er aus dem Repo-Namen ab
 (`WV_BASE` in `vite.config.ts`).
 
 Projekt-Repos bauen ihre eigene Seite mit

@@ -121,8 +121,20 @@ export function splitPersonName(name: string): { familyName: string; givenName?:
   return { familyName: words.slice(start).join(' '), givenName: words.slice(0, start).join(' ') || undefined }
 }
 
-// Erzeugt zu einem eingetippten Namen den Datensatz eines Hilfstyps.
-export function recordFromName(entity: PlainEntity, name: string): Values {
+// Zu einem eingetippten Namen der Datensatz eines Hilfstyps, mit freier ID.
+export function recordFromName(entity: PlainEntity, name: string, taken: string[]): Values {
+  const values = valuesFromName(entity, name)
+  return { ...values, '@id': uniqueId(entity, entity === 'persons' ? (values.familyName as string) : name, taken) }
+}
+
+// Die ID eines neuen Datensatzes: aus der ersten Nummer, sonst aus dem Namen.
+export function newRecordId(entity: PlainEntity, values: Values, taken: string[]): string {
+  const identifiers = values.identifiers as { value?: string }[] | undefined
+  const base = identifiers?.find((identifier) => identifier.value?.trim())?.value || displayName(entity, values) || 'neu'
+  return uniqueId(entity, base, taken)
+}
+
+function valuesFromName(entity: PlainEntity, name: string): Values {
   switch (entity) {
     case 'persons':
       return { ...splitPersonName(name) }
@@ -174,6 +186,9 @@ export function displayName(entity: EntityKey, record: Values): string {
       return firstTitle(record)
   }
 }
+
+// Sprachkuerzel fuer Titel. Fuer en gibt es noch keinen Begriff in der Auswahl.
+export const TITLE_LANGUAGES = ['la', 'it', 'fr', 'de', 'en']
 
 const LANGUAGE_TERMS: Record<string, string> = {
   la: 'terms:Latin',
@@ -307,7 +322,7 @@ function cleanRecord(config: Config, entity: EntityDef, id: string, values: Valu
   return record
 }
 
-export function composerRecord(config: Config): Values | null {
+function composerRecord(config: Config): Values | null {
   const name = config.catalogue.composer.trim()
   if (!name || !isEntityActive(config, 'persons')) {
     return null
@@ -316,7 +331,7 @@ export function composerRecord(config: Config): Values | null {
   return { '@id': `persons:${slug(person.familyName).toLowerCase()}`, ...person }
 }
 
-export const workIdBase = (values: Values): string => {
+const workIdBase = (values: Values): string => {
   const identifiers = values.identifiers as { value?: string }[] | undefined
   return identifiers?.find((identifier) => identifier.value?.trim())?.value ?? firstTitle(values)
 }
@@ -538,7 +553,7 @@ export function buildCollections(config: Config, draft: Draft): BuiltFiles {
 
 const DEFAULT_CONTEXT = '../schema/context.jsonld'
 
-export const fileContent = (records: Values[], context = DEFAULT_CONTEXT): string =>
+const fileContent = (records: Values[], context = DEFAULT_CONTEXT): string =>
   `${JSON.stringify({ '@context': context, entries: records }, null, 2)}\n`
 
 // Alle Dateien eines data/-Ordners: auch leere, denn validate.py und die Oberflaeche
@@ -736,7 +751,7 @@ export interface Check {
   details?: string[]
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const LINK = /^https?:\/\/[^\s/<>"{}|\\^`[\]]+\/[^\s<>"{}|\\^`[\]]+$/
 const REFERENCE = /^(works|expressions|manifestations|items|persons|institutions|places|instrumentations|bibliography):[A-Za-z0-9-]+$/
 
@@ -987,14 +1002,13 @@ export function changedRecords(config: Config, draft: Draft): RecordChanges[] {
 
 // Das Ein-Klick-Heilmittel: Jedes Werk ohne Expression bekommt eine.
 export function createMissingExpressions(draft: Draft): Draft {
-  const works: WorkDraft[] = []
-  for (const work of draft.works) {
-    works.push(work.expressions.length > 0 ? work : assignWorkIds({ ...work, expressions: [newExpression()] }, draft.works))
+  return {
+    ...draft,
+    works: draft.works.map((work) => (work.expressions.length > 0 ? work : assignWorkIds({ ...work, expressions: [newExpression()] }, draft.works))),
   }
-  return { ...draft, works }
 }
 
-// Beispiel zum Ausprobieren. Bei Lasso aus examples/lasso-schwierig, bei Le Beau nur
+// Beispiel zum Ausprobieren. Bei Lasso ein echter Auszug (LV 90), bei Le Beau nur
 // veroeffentlichte Eckdaten, keine erfundene Quelle.
 export function sampleDraft(config: Config): Draft {
   const draft = emptyDraft()

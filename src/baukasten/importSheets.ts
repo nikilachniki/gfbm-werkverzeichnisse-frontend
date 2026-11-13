@@ -11,10 +11,12 @@ import {
   displayName,
   incompleteRows,
   isManuscript,
+  ISO_DATE,
   itemsOfSource,
   missingRequired,
+  newRecordId,
   recordFromName,
-  uniqueId,
+  TITLE_LANGUAGES,
   withSourceItem,
   type Draft,
   type PlainEntity,
@@ -63,7 +65,6 @@ export interface SheetDef {
   columns: Column[]
 }
 
-export const TITLE_LANGUAGES = ['la', 'it', 'fr', 'de', 'en']
 const EXPRESSION_PREFIX = 'Fassung: '
 
 const LIST_KINDS = new Set<Input['kind']>(['strings', 'terms', 'links', 'refs'])
@@ -253,7 +254,6 @@ const splitList = (text: string): string[] =>
     .filter(Boolean)
 
 const GERMAN_DATE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 // Ein Wert, wie ihn das Formular haette. Verweise loest erst resolve() auf.
 function parseValue(input: Input, cell: Cell): { value?: unknown; error?: string } {
@@ -558,9 +558,7 @@ export function importSheets(config: Config, draft: Draft, sheets: SheetInput[])
       pending.id = work.id
     } else {
       const list = taken.get(pending.entity)!
-      const identifiers = pending.values.identifiers as { value?: string }[] | undefined
-      const base = identifiers?.find((identifier) => identifier.value?.trim())?.value || displayName(pending.entity, pending.values) || 'neu'
-      pending.id = uniqueId(pending.entity, base, list)
+      pending.id = newRecordId(pending.entity as PlainEntity, pending.values, list)
       list.push(pending.id)
     }
   }
@@ -630,11 +628,11 @@ export function importSheets(config: Config, draft: Draft, sheets: SheetInput[])
       continue
     }
     const entity = ref.to as PlainEntity
-    const record = recordFromName(entity, ref.text)
     const list = taken.get(entity)!
-    const id = uniqueId(entity, entity === 'persons' ? (record.familyName as string) : ref.text, list)
+    const record = recordFromName(entity, ref.text, list)
+    const id = record['@id'] as string
     list.push(id)
-    created.push({ entity, record: { ...record, '@id': id } })
+    created.push({ entity, record })
     addKeys(entity, id, record)
     ref.set(id)
   }

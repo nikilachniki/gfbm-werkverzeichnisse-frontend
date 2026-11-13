@@ -525,7 +525,7 @@ export const editions: Edition[] = rawBibliography
 
 const bibliographyById = byId(rawBibliography)
 
-export function citationLocation(citation: Citation): string {
+function citationLocation(citation: Citation): string {
   if (citation.number !== undefined) {
     return `Nr. ${citation.number}`
   }

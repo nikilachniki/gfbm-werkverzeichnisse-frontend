@@ -103,7 +103,7 @@ function templateFolder() {
   const templateDir =
     ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(projectRoot, '..', name)).find((folder) => existsSync(folder)) ??
     path.resolve(projectRoot, '..', 'gfbm-werkverzeichnisse')
-  return path.resolve(templateDir, 'examples', 'lasso-schwierig')
+  return path.resolve(templateDir, 'examples')
 }
 
 try {

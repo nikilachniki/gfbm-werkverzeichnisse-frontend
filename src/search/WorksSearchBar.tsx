@@ -29,8 +29,6 @@ interface WorksSearchBarProps {
   authorOptions: string[]
   voiceCountOptions: number[]
   languageOptions: string[]
-  resultCount: number
-  totalCount: number
 }
 
 export function WorksSearchBar({

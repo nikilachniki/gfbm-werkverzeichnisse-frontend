@@ -442,7 +442,7 @@ export const PRESETS: Preset[] = [
       catalogue: { label: 'Werkverzeichnis Orlando di Lasso', abbreviation: 'LV', composer: 'Lasso, Orlando di' },
       entities: allEntities(),
       expressionMode: 'auto',
-      // Auswahl nach der Feldnutzung in examples/lasso-schwierig. Die Gattung bleibt aus,
+      // Auswahl nach der Feldnutzung in den Lasso-Daten. Die Gattung bleibt aus,
       // weil ihre Bestimmung bei Lasso noch ungeklaert ist (Kontrafakturen).
       fields: fieldsOn({
         works: ['identifiers', 'contributors', 'partOfWork', 'citations', 'textSources'],
@@ -495,7 +495,7 @@ export const PRESETS: Preset[] = [
   },
 ]
 
-export const presetOf = (id: PresetId): Preset => PRESETS.find((preset) => preset.id === id)!
+const presetOf = (id: PresetId): Preset => PRESETS.find((preset) => preset.id === id)!
 
 export const configFromPreset = (id: PresetId): Config => {
   const { config } = presetOf(id)

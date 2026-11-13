@@ -2,9 +2,7 @@ import Link from '@mui/material/Link'
 import { Highlight } from './search/Highlight'
 import type { TextAuthorLabel } from './catalogueData'
 
-// Kleines Badge-Icon fuer eine Normdaten-Verknuepfung (GND/VIAF), das direkt
-// neben dem Namen steht statt den Namen selbst zu verlinken. So bleibt der Name
-// reiner Text und beide Verknuepfungen sind unabhaengig voneinander sichtbar.
+// GND- oder VIAF-Badge neben einem Namen. Der Name selbst bleibt Text.
 function AuthorityBadge({ label, href, color }: { label: string; href: string; color: string }) {
   return (
     <Link

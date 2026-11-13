@@ -8,7 +8,7 @@
 //    gleich, und eine Aenderung beruehrt nur, was geaendert wurde.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -239,7 +239,7 @@ for (const preset of PRESETS) {
 
 // Oeffnen und unveraendert speichern: dieselben Bytes, egal welche Felder gerade an sind.
 {
-  const folders = [path.join(dataRepo, 'data'), ...readdirSync(path.join(dataRepo, 'examples'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => path.join(dataRepo, 'examples', entry.name))]
+  const folders = [path.join(dataRepo, 'data'), path.join(dataRepo, 'examples')]
   for (const folder of folders) {
     const label = path.relative(dataRepo, folder)
     const files = Object.fromEntries(DATA_FILES.map((file) => [file, readFileSync(path.join(folder, file), 'utf8')]))

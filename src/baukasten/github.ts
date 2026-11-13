@@ -33,7 +33,7 @@ export interface RemoteState {
 // Der Stand hat sich geaendert, seit die Dateien geoeffnet wurden.
 export class ConflictError extends GitHubError {}
 
-export const workBranch = (login: string): string => `redaktion/${login.toLowerCase()}`
+const workBranch = (login: string): string => `redaktion/${login.toLowerCase()}`
 
 const repoUrl = (target: RemoteTarget) => `/repos/${target.owner}/${target.repo}`
 const filePath = (target: RemoteTarget, file: string) => (target.path ? `${target.path.replace(/\/+$/, '')}/${file}` : file)
@@ -59,11 +59,8 @@ async function publishedHead(client: Client, target: RemoteTarget): Promise<stri
 }
 
 async function readFiles(client: Client, target: RemoteTarget, head: string): Promise<Record<string, string>> {
-  const files: Record<string, string> = {}
-  for (const file of DATA_FILES) {
-    files[file] = await client.text(`${repoUrl(target)}/contents/${filePath(target, file)}?ref=${head}`)
-  }
-  return files
+  const texts = await Promise.all(DATA_FILES.map((file) => client.text(`${repoUrl(target)}/contents/${filePath(target, file)}?ref=${head}`)))
+  return Object.fromEntries(DATA_FILES.map((file, index) => [file, texts[index]]))
 }
 
 // baukasten.json, die gemeinsame Einrichtung, falls es sie auf diesem Stand schon gibt.

@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // Die Vorlage liegt als Geschwisterordner neben diesem Projekt, unter neuem oder altem Namen.
 const templateDir = process.env.WV_TEMPLATE_DIR ?? ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(root, '..', name)).find((folder) => existsSync(folder)) ?? path.resolve(root, '..', 'gfbm-werkverzeichnisse')
 const dataRepo = templateDir
-const folder = 'examples/lasso-schwierig'
+const folder = 'examples'
 
 const failures: string[] = []
 const check = (condition: boolean, message: string) => {

@@ -15,7 +15,7 @@
 // Diplomatische Titelblaetter trennen am Zeilenende mit "=|" ("Can=|tiones").
 const LINE_BREAK_HYPHEN = /=\s*\|\s*/g
 
-export function fold(text: string): string {
+function fold(text: string): string {
   return text
     .replace(LINE_BREAK_HYPHEN, '')
     .normalize('NFD')
@@ -35,7 +35,7 @@ export function fold(text: string): string {
 
 const WORD = /[\p{L}\p{N}]+/gu
 
-export function tokenize(text: string): string[] {
+function tokenize(text: string): string[] {
   return fold(text).match(WORD) ?? []
 }
 

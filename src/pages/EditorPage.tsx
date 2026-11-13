@@ -446,11 +446,10 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
               <Tab value="einrichtung" label="Einrichtung" />
               <Tab value="export" label="Export" />
             </Tabs>
-            {/* Beide bleiben geladen, damit ein offenes Formular den Wechsel uebersteht. */}
+            {/* Bleiben geladen, damit ein offenes Formular oder eine Import-Vorschau den Wechsel uebersteht. */}
             <Box hidden={tab !== 'daten'}>
               <DataWorkspace config={config} draft={draft} onDraft={setDraft} showFiles={false} target={target} />
             </Box>
-            {/* Bleibt geladen, damit eine Vorschau den Wechsel zu den Daten uebersteht. */}
             <Box hidden={tab !== 'import'}>
               <ImportPanel config={config} draft={draft} onDraft={setDraft} />
             </Box>

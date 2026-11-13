@@ -1,6 +1,6 @@
 // Prueft den Excel-Import einmal ganz durch. Aufruf: npm run check:import
 //
-// Die Vorlage zu examples/lasso-schwierig wird erzeugt, wie in Excel ausgefuellt, wieder
+// Die Vorlage zum Beispiel (examples/) wird erzeugt, wie in Excel ausgefuellt, wieder
 // eingelesen und importiert. Danach muessen die neuen Datensaetze stimmen und die Pruefung
 // darf keine neuen Fehler melden.
 
@@ -15,7 +15,7 @@ import { importSheets, templateSheets } from '../src/baukasten/importSheets.ts'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const templateDir = process.env.WV_TEMPLATE_DIR ?? ['gfbm-werkverzeichnisse', 'lassoDBData'].map((name) => path.resolve(root, '..', name)).find((folder) => existsSync(folder)) ?? path.resolve(root, '..', 'gfbm-werkverzeichnisse')
-const folder = path.join(templateDir, 'examples', 'lasso-schwierig')
+const folder = path.join(templateDir, 'examples')
 const ExcelJS = createRequire(import.meta.url)('exceljs')
 
 const failures: string[] = []
@@ -26,7 +26,7 @@ const check = (condition: boolean, message: string) => {
 }
 
 const files = Object.fromEntries(DATA_FILES.map((file) => [file, readFileSync(path.join(folder, file), 'utf8')]))
-const draft = draftFromFiles(files, 'lasso-schwierig')
+const draft = draftFromFiles(files, 'examples')
 const config = configForDraft(configFromPreset('lasso'), draft)
 const sheets = templateSheets(config)
 
@@ -58,12 +58,12 @@ const fill = (sheetName: string, rows: Record<string, unknown>[]) => {
 }
 fill('Werke', [
   { Titel: 'Testmotette eins', 'Titel: Sprache': 'la', 'Verzeichnisnummer: Nummer': '9001', 'Beteiligte: Person': 'Mustermann, Erika', 'Beteiligte: Rolle': 'Text', Textprovenienz: 'Psalm 1; Psalm 2' },
-  { Titelvarianten: 'Testmotette Variante', 'Beteiligte: Person': 'Clément Marot' },
+  { Titelvarianten: 'Testmotette Variante', 'Beteiligte: Person': 'Max Dichter' },
   { Titel: 'Testmotette zwei', 'Verzeichnisnummer: Nummer': '9002', 'Teil von': '9001', 'Fassung: Besetzung': 'Neue Besetzung' },
-  { Titel: 'Schon vorhanden', 'Verzeichnisnummer: Nummer': '90' },
+  { Titel: 'Schon vorhanden', 'Verzeichnisnummer: Nummer': '1' },
 ])
 fill('Quellen', [
-  { Titel: 'Testhandschrift', Art: 'Handschrift', 'Sigle und Katalognummern: Verzeichnis': 'Sigle', 'Sigle und Katalognummern: Nummer': 'TEST-1', 'Enthaltene Stücke: Werk': 'LV 9001', 'Enthaltene Stücke: Nr. in der Quelle': '1' },
+  { Titel: 'Testhandschrift', Art: 'Handschrift', 'Sigle und Katalognummern: Verzeichnis': 'Sigle', 'Sigle und Katalognummern: Nummer': 'TEST-1', 'Enthaltene Stücke: Werk': 'MWV 9001', 'Enthaltene Stücke: Nr. in der Quelle': '1' },
   { 'Enthaltene Stücke: Werk': '9002', 'Enthaltene Stücke: Nr. in der Quelle': '2' },
   { 'Enthaltene Stücke: Titel in der Quelle': 'Unbekanntes Stück', 'Enthaltene Stücke: Nr. in der Quelle': '3' },
 ])
@@ -88,7 +88,7 @@ const source = collections.manifestations.find((record) => JSON.stringify(record
 const person = collections.persons.find((record) => record.familyName === 'Mustermann')
 check(collections.persons.filter((record) => record.familyName === 'Mustermann').length === 1, 'Person doppelt angelegt statt verknüpft')
 check(JSON.stringify(first?.titles) === JSON.stringify([{ text: { la: 'Testmotette eins' }, type: 'terms:MainTitle' }, { text: { la: 'Testmotette Variante' }, type: 'terms:OtherTitle' }]), `Titel: ${JSON.stringify(first?.titles)}`)
-check(JSON.stringify(first?.identifiers) === JSON.stringify([{ list: 'LV', value: '9001' }]), `Nummer: ${JSON.stringify(first?.identifiers)}`)
+check(JSON.stringify(first?.identifiers) === JSON.stringify([{ list: 'MWV', value: '9001' }]), `Nummer: ${JSON.stringify(first?.identifiers)}`)
 const agents = ((first?.contributors as Values[] | undefined) ?? []).map((row) => `${row.agent as string}/${row.role as string}`)
 check(agents.length === 3 && agents.includes(`${person?.['@id'] as string}/terms:Lyricist`), `Beteiligte: ${agents.join(', ')}`)
 check(JSON.stringify(first?.textSources) === '["Psalm 1","Psalm 2"]', `Textprovenienz: ${JSON.stringify(first?.textSources)}`)

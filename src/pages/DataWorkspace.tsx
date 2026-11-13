@@ -25,13 +25,13 @@ import {
   itemsOfSource,
   missingRequired,
   newExpression,
+  newRecordId,
   newWork,
   recordFromName,
   recordNumber,
   recordSearchIndex,
   runChecks,
   searchEntries,
-  uniqueId,
   withSourceItem,
   type Check,
   type Draft,
@@ -101,14 +101,8 @@ function itemToEdit(config: Config, draft: Draft, sourceId: string): Values | un
   return items.length === 1 ? structuredClone(items[0]) : {}
 }
 
-function recordId(entity: PlainEntity, record: Values, list: Values[]): string {
-  if (record['@id']) {
-    return record['@id'] as string
-  }
-  const identifiers = record.identifiers as { value?: string }[] | undefined
-  const base = identifiers?.find((identifier) => identifier.value?.trim())?.value || displayName(entity, record) || 'neu'
-  return uniqueId(entity, base, list.map((other) => other['@id'] as string))
-}
+const recordId = (entity: PlainEntity, record: Values, list: Values[]): string =>
+  (record['@id'] as string | undefined) || newRecordId(entity, record, list.map((other) => other['@id'] as string))
 
 function FieldStack({ entity, values, config, onChange, context, omit = [] }: { entity: EntityDef; values: Values; config: Config; onChange: (next: Values) => void; context: EditorContext; omit?: string[] }) {
   const fields = entity.fields.filter((field) => isFieldActive(config, entity.key, field) && field.input.kind !== 'auto' && !omit.includes(field.key))
@@ -160,7 +154,6 @@ function WorkForm({ work, config, onChange, context }: { work: WorkDraft; config
   const expressionEntity = entityOf('expressions')
   const updateExpression = (index: number, patch: Partial<ExpressionDraft>) =>
     onChange({ ...work, expressions: work.expressions.map((expression, position) => (position === index ? { ...expression, ...patch } : expression)) })
-  const noun = 'Fassung'
 
   return (
     <Stack spacing={3}>
@@ -170,10 +163,10 @@ function WorkForm({ work, config, onChange, context }: { work: WorkDraft; config
         <Paper key={index} variant="outlined" sx={{ p: 2 }}>
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
             <Typography variant="subtitle1" component="h4">
-              {`${noun} ${index + 1}`}
+              Fassung {index + 1}
             </Typography>
             {(mode === 'manual' || index > 0) && (
-              <IconButton size="small" aria-label={`${noun} ${index + 1} entfernen`} onClick={() => onChange({ ...work, expressions: work.expressions.filter((_, position) => position !== index) })}>
+              <IconButton size="small" aria-label={`Fassung ${index + 1} entfernen`} onClick={() => onChange({ ...work, expressions: work.expressions.filter((_, position) => position !== index) })}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             )}
@@ -196,7 +189,7 @@ function WorkForm({ work, config, onChange, context }: { work: WorkDraft; config
         <Alert severity="warning">Dieses Werk hat noch keine Fassung. Keine Quelle kann darauf verweisen.</Alert>
       )}
       <Button startIcon={<AddIcon />} sx={{ alignSelf: 'flex-start' }} onClick={() => onChange({ ...work, expressions: [...work.expressions, newExpression()] })}>
-        {`${noun} ergänzen`}
+        Fassung ergänzen
       </Button>
     </Stack>
   )
@@ -424,10 +417,9 @@ export function DataWorkspace({ config, draft, onDraft, onSample, showFiles, tar
     draft,
     createRecord: (entity, name) => {
       const list = draft.records[entity]
-      const record = recordFromName(entity, name)
-      const id = uniqueId(entity, entity === 'persons' ? (record.familyName as string) : name, list.map((other) => other['@id'] as string))
-      onDraft({ ...draft, records: { ...draft.records, [entity]: [...list, { ...record, '@id': id }] } })
-      return id
+      const record = recordFromName(entity, name, list.map((other) => other['@id'] as string))
+      onDraft({ ...draft, records: { ...draft.records, [entity]: [...list, record] } })
+      return record['@id'] as string
     },
   }
 

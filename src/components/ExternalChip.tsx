@@ -3,10 +3,8 @@ import Tooltip from '@mui/material/Tooltip'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import type { SxProps, Theme } from '@mui/material/styles'
 
-// Verweis auf eine fremde Seite (Online-Katalog, Literatur) als Chip mit dem
-// Pfeil-Icon rechts, das anzeigt, dass die Anwendung verlassen wird. Gegenstueck
-// zu PrintChip fuer interne Verweise. stopPropagation verhindert, dass der Klick
-// zugleich die umgebende Zeile bzw. das Akkordeon ausloest.
+// Verweis auf eine fremde Seite als Chip mit Pfeil, Gegenstueck zu SourceChip.
+// stopPropagation, damit der Klick nicht auch die Zeile oder das Akkordeon trifft.
 export function ExternalChip({
   label,
   href,

@@ -27,7 +27,8 @@ function downloadWorksAsJson(works: Work[]) {
   link.href = url
   link.download = 'werke.json'
   link.click()
-  URL.revokeObjectURL(url)
+  // Erst etwas spaeter freigeben, manche Browser starten den Download verzoegert.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export interface WorksGridToolbarProps {

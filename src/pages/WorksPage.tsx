@@ -110,10 +110,8 @@ function manuscriptSigla(work: Work): Siglum[] {
 const VISIBLE_SIGLA = 1
 const SIGLUM_CHIP_MAX_WIDTH = 76
 
-// Die ersten Sigel als Chips, weitere hinter einem "+N"-Chip mit Pfeil, der
-// ein Popover mit allen Sigeln oeffnet. stopPropagation verhindert, dass der
-// Klick die Zeilennavigation der DataGrid zur Detailseite ausloest.
-// Gemeinsam fuer Drucke und Handschriften, renderChip zeichnet den Chip.
+// Das erste Sigel als Chip, alle weiteren hinter "+N". stopPropagation, damit der
+// Klick nicht zur Detailseite fuehrt.
 function SiglaCell<T extends { siglum: string }>({
   sigla,
   renderChip,
@@ -260,10 +258,7 @@ function createColumns(onToggle: (workId: string) => void, query: string): GridC
     headerName: 'Textdichter / Textprovenienz',
     flex: 1,
     minWidth: 140,
-    // Der Zellwert (textAuthorOrSource) bleibt die reine Zeichenkette, damit
-    // Sortierung, Filter und CSV/Druck-Export unveraendert darauf arbeiten;
-    // nur die Darstellung zeigt zusaetzlich die GND/VIAF-Badges an, siehe
-    // AuthorOrSourceText.
+    // Der Zellwert bleibt Text fuer Sortierung und Export, angezeigt werden dazu die Badges.
     renderCell: (params: GridRenderCellParams<Row>) => (
       <AuthorOrSourceText authors={params.row.textAuthors} sources={params.row.textSources} highlight={query} />
     ),
@@ -449,8 +444,6 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
         authorOptions={authorOptions}
         voiceCountOptions={voiceCountOptions}
         languageOptions={languageOptions}
-        resultCount={filteredWorks.length}
-        totalCount={works.length}
       />
       <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <DataGrid
@@ -477,23 +470,12 @@ export function WorksPage({ filters, onFiltersChange }: WorksPageProps) {
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
               margin: 0,
             },
-            // Alle Zeilen sind klickbar (Teile fuehren zu ihrem Basiswerk). Die
-            // Darstellung traegt zwei Informationen, je ueber ein eigenes Mittel:
-            //   - Struktur (Teil eines Werks): Einrueckung und Pfeil in der Nummernspalte
-            //   - Suche: gelber Balken am linken Rand der Trefferzeilen, dazu der
-            //     gelb markierte Suchbegriff im Text (siehe Highlight). Basiswerke,
-            //     die nur als Rahmen fuer einen passenden Teil erscheinen, bleiben
-            //     ohne Balken.
-            // Der Balken ist ein innerer Schatten statt eines Rahmens, damit die
-            // Zeilen nicht um dessen Breite verrutschen.
             '& .MuiDataGrid-row': { cursor: 'pointer' },
-            // Ausgeklappte Teile leicht hinterlegt, damit sie sich als Gruppe
-            // von den Basiswerken abheben.
+            // Teile leicht hinterlegt. Treffer bekommen links einen gelben Balken, als
+            // Schatten, damit die Zeile nicht verrutscht.
             '& .wv-row-part:not(:hover)': { bgcolor: 'action.hover' },
             '& .wv-row-match': { boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.highlight.bar}` },
-            // Kein Fokusrahmen um einzelne Zellen: die Tabelle wird zeilenweise
-            // bedient, ein Rahmen um die angeklickte Zelle wirkt wie eine
-            // Hervorhebung dieser einen Zelle.
+            // Bedient wird zeilenweise, ein Rahmen um eine einzelne Zelle wuerde irritieren.
             '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': { outline: 'none' },
             '& .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within': {
               outline: 'none',

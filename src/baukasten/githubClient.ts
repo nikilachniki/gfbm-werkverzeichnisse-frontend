@@ -5,7 +5,7 @@
 export interface RemoteTarget {
   owner: string
   repo: string
-  // Ordner mit den Datendateien, etwa "data" oder "examples/lasso-schwierig"
+  // Ordner mit den Datendateien, etwa "data" oder "examples"
   path: string
   // Der veroeffentlichte Stand, meist main
   base: string
@@ -27,7 +27,7 @@ const [defaultOwner, defaultRepo] = ((env.VITE_DATA_REPO as string | undefined) 
 export const DEFAULT_TARGET: RemoteTarget = {
   owner: defaultOwner,
   repo: defaultRepo,
-  path: (env.VITE_DATA_PATH as string | undefined) ?? 'examples/lasso-schwierig',
+  path: (env.VITE_DATA_PATH as string | undefined) ?? 'examples',
   base: (env.VITE_DATA_BRANCH as string | undefined) ?? 'main',
 }
 
@@ -38,7 +38,7 @@ export const projectKey = (name: string, target: RemoteTarget = DEFAULT_TARGET):
 type Fetch = typeof fetch
 
 export interface Client {
-  request: <T>(method: string, url: string, body?: unknown, accept?: string) => Promise<T>
+  request: <T>(method: string, url: string, body?: unknown) => Promise<T>
   text: (url: string) => Promise<string>
 }
 
@@ -68,8 +68,8 @@ export function createClient(token: string, fetchImpl: Fetch = fetch, base = 'ht
     return response
   }
   return {
-    request: async <T>(method: string, url: string, body?: unknown, accept?: string) => {
-      const response = await send(method, url, body, accept)
+    request: async <T>(method: string, url: string, body?: unknown) => {
+      const response = await send(method, url, body)
       return (response.status === 204 ? undefined : await response.json()) as T
     },
     text: async (url: string) => (await send('GET', url, undefined, 'application/vnd.github.raw+json')).text(),

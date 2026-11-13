@@ -47,12 +47,12 @@ jobs:
 
       - name: Bauen
         env:
-          WV_DATA_DIR: ${{ github.workspace }}/vorlage/examples/lasso-schwierig
+          WV_DATA_DIR: ${{ github.workspace }}/vorlage/examples
           # Pages liefert unter /<repo>/ aus; so ueberlebt die Seite auch eine Umbenennung.
           WV_BASE: /${{ github.event.repository.name }}/
           # Wohin der Baukasten speichert: dasselbe Verzeichnis, das die Seite anzeigt.
           VITE_DATA_REPO: nikilachniki/gfbm-werkverzeichnisse
-          VITE_DATA_PATH: examples/lasso-schwierig
+          VITE_DATA_PATH: examples
           VITE_DATA_BRANCH: main
         run: npm run build
 
