@@ -19,6 +19,7 @@ import { buildFiles, changedFiles, changedRecords, CONFIG_FILE, configForDraft, 
 import { createClient, DEFAULT_TARGET, mergePull, openRemote, projectKey, publish, pullStatus, saveRemote, type PullStatus, type RemoteState } from '../baukasten/github.ts'
 import { withEntity, type Config, type EntityKey } from '../baukasten/model.ts'
 import { CheckList, DataWorkspace } from './DataWorkspace.tsx'
+import { ImportPanel } from './ImportPanel.tsx'
 import { BuildingBlocksStep, FieldsStep } from './SetupControls.tsx'
 
 // Die Bearbeitung eines fertig eingerichteten Verzeichnisses: immer die echten Daten aus dem Repo.
@@ -275,7 +276,7 @@ function SetupPanel({ config, draft, onConfig }: { config: Config; draft: Draft;
   )
 }
 
-type EditorTab = 'daten' | 'einrichtung' | 'export'
+type EditorTab = 'daten' | 'import' | 'einrichtung' | 'export'
 
 // Kopf der Spalte: der rote Zaehler nennt, wie viele Datensaetze noch nicht gespeichert sind.
 function SaveHeader({ config, draft, remote }: { config: Config; draft: Draft; remote: RemoteState }) {
@@ -441,12 +442,17 @@ export function EditorPage({ setup, onName }: { setup: string; onName: (name: st
           <Box sx={{ minWidth: 0 }}>
             <Tabs value={tab} onChange={(_, value: EditorTab) => setTab(value)} aria-label="Bereiche der Verwaltung" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
               <Tab value="daten" label="Daten" />
+              <Tab value="import" label="Import" />
               <Tab value="einrichtung" label="Einrichtung" />
               <Tab value="export" label="Export" />
             </Tabs>
             {/* Beide bleiben geladen, damit ein offenes Formular den Wechsel uebersteht. */}
             <Box hidden={tab !== 'daten'}>
               <DataWorkspace config={config} draft={draft} onDraft={setDraft} showFiles={false} target={target} />
+            </Box>
+            {/* Bleibt geladen, damit eine Vorschau den Wechsel zu den Daten uebersteht. */}
+            <Box hidden={tab !== 'import'}>
+              <ImportPanel config={config} draft={draft} onDraft={setDraft} />
             </Box>
             <Box hidden={tab !== 'einrichtung'}>
               <SetupPanel config={config} draft={draft} onConfig={(next) => setProject({ draft, config: next })} />
